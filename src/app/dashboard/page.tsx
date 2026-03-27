@@ -147,16 +147,13 @@ function DashboardContent() {
         
         console.log("Creating profile with username:", uniqueUsername);
         
+        // Profile already exists from trigger, just update username
         const { data: newProfile, error: createError } = await supabase
           .from("profiles")
-          .upsert({
-            id: user.id,
+          .update({
             username: uniqueUsername,
-            display_name: '',
-            bio: '',
-          }, {
-            onConflict: 'id'
           })
+          .eq('id', user.id)
           .select()
           .single();
         
@@ -165,6 +162,8 @@ function DashboardContent() {
           console.error("Error code:", createError.code);
           console.error("Error message:", createError.message);
           console.error("Error details:", createError.details);
+          // Don't fail - user can still use dashboard without profile
+          console.log("Continuing without profile creation");
         } else {
           profileData = newProfile;
           console.log("Profile created successfully:", newProfile);
@@ -363,15 +362,11 @@ function DashboardContent() {
   const handleSaveBio = async () => {
     if (!userId) return;
 
-    // Use upsert - works whether profile exists or not
+    // Just update - profile already exists from trigger
     const { error } = await supabase
       .from("profiles")
-      .upsert({
-        id: userId,
-        bio: bioInput,
-      }, {
-        onConflict: 'id'
-      });
+      .update({ bio: bioInput })
+      .eq("id", userId);
 
     if (error) {
       console.error("Save bio error:", error);
@@ -393,15 +388,11 @@ function DashboardContent() {
 
     console.log("Saving display name:", nameInput, "for user:", userId);
 
-    // Use upsert - works whether profile exists or not
+    // Update profile - should already exist from trigger
     const { error } = await supabase
       .from("profiles")
-      .upsert({
-        id: userId,
-        display_name: nameInput,
-      }, {
-        onConflict: 'id'
-      });
+      .update({ display_name: nameInput })
+      .eq("id", userId);
 
     if (error) {
       console.error("Save name error:", error);
