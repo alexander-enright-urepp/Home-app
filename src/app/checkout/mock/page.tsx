@@ -7,8 +7,6 @@ import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 // MOCK CHECKOUT PAGE
-// This page handles "fake" checkout success for development
-// Set NEXT_PUBLIC_MOCK_STRIPE=true in .env.local to use this
 export default function MockCheckoutPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -16,7 +14,6 @@ export default function MockCheckoutPage() {
   const [isComplete, setIsComplete] = useState(false);
   const userId = searchParams.get('user_id');
 
-  // Check if mock mode is enabled
   const isMockMode = process.env.NEXT_PUBLIC_MOCK_STRIPE === 'true';
 
   const activatePremium = async () => {
@@ -28,21 +25,47 @@ export default function MockCheckoutPage() {
     setIsActivating(true);
     
     try {
-      // Create mock subscription record directly
-      const { error: subError } = await supabase.from('subscriptions').upsert({
-        user_id: userId,
-        stripe_customer_id: `mock_cust_${userId.slice(0, 8)}`,
-        stripe_subscription_id: `mock_sub_${Date.now()}`,
-        status: 'active',
-        plan: 'premium',
-        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        cancel_at_period_end: false,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'user_id'
-      });
+      // First check if subscription exists
+      const { data: existingSub } = await supabase
+        .from('subscriptions')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
 
-      if (subError) throw subError;
+      const subId = `mock_sub_${Date.now()}`;
+      
+      if (existingSub) {
+        // Update existing subscription
+        const { error: subError } = await supabase
+          .from('subscriptions')
+          .update({
+            stripe_customer_id: `mock_cust_${userId.slice(0, 8)}`,
+            stripe_subscription_id: subId,
+            status: 'active',
+            plan: 'premium',
+            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            cancel_at_period_end: false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', userId);
+
+        if (subError) throw subError;
+      } else {
+        // Insert new subscription
+        const { error: subError } = await supabase
+          .from('subscriptions')
+          .insert({
+            user_id: userId,
+            stripe_customer_id: `mock_cust_${userId.slice(0, 8)}`,
+            stripe_subscription_id: subId,
+            status: 'active',
+            plan: 'premium',
+            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            cancel_at_period_end: false,
+          });
+
+        if (subError) throw subError;
+      }
 
       // Update profile
       const { error: profileError } = await supabase
@@ -55,7 +78,6 @@ export default function MockCheckoutPage() {
       setIsComplete(true);
       toast.success('Premium activated!');
       
-      // Redirect after 2 seconds
       setTimeout(() => {
         router.push('/dashboard?checkout=success');
       }, 2000);
@@ -72,9 +94,7 @@ export default function MockCheckoutPage() {
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Mock Mode Disabled</h1>
-          <p className="text-slate-600">
-            Set NEXT_PUBLIC_MOCK_STRIPE=true in .env.local to use mock checkout
-          </p>
+          <p className="text-slate-600">Set NEXT_PUBLIC_MOCK_STRIPE=true</p>
         </div>
       </div>
     );
@@ -85,7 +105,7 @@ export default function MockCheckoutPage() {
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Error</h1>
-          <p className="text-slate-600">No user ID found. Please try again.</p>
+          <p className="text-slate-600">No user ID found.</p>
         </div>
       </div>
     );
@@ -99,12 +119,8 @@ export default function MockCheckoutPage() {
             <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-10 h-10 text-emerald-500" />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">
-              Welcome to Premium!
-            </h1>
-            <p className="text-slate-600 mb-6">
-              Your subscription is now active. Redirecting to dashboard...
-            </p>
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">Welcome to Premium!</h1>
+            <p className="text-slate-600 mb-6">Your subscription is now active.</p>
             <div className="flex justify-center gap-2 text-sm text-emerald-600">
               <Sparkles className="w-4 h-4" />
               <span>Premium features unlocked</span>
@@ -115,37 +131,18 @@ export default function MockCheckoutPage() {
             <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Sparkles className="w-10 h-10 text-amber-500" />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">
-              Mock Checkout
-            </h1>
-            <p className="text-slate-600 mb-6">
-              This is a test checkout. No real payment will be processed.
-            </p>
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">Mock Checkout</h1>
+            <p className="text-slate-600 mb-6">No real payment will be processed.</p>
             
             <button
               onClick={activatePremium}
               disabled={isActivating}
               className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white px-6 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
             >
-              {isActivating ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Activating...
-                </>
-              ) : (
-                <>
-                  Activate Premium (Free)
-                  <ArrowRight className="w-5 h-5" />
-                </>
+              {isActivating ? 'Activating...' : (
+                <>Activate Premium (Free) <ArrowRight className="w-5 h-5" /></>
               )}
             </button>
-
-            <p className="mt-4 text-xs text-slate-400">
-              This is development mode. Set up real Stripe for production.
-            </p>
           </>
         )}
       </div>
