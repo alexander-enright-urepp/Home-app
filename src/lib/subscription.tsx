@@ -3,10 +3,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from './supabase';
 
-// PREMIUM FEATURE: Subscription status types
 type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'unpaid' | 'incomplete' | 'inactive';
 
-// PREMIUM FEATURE: Subscription data structure
 interface Subscription {
   id: string;
   user_id: string;
@@ -19,7 +17,6 @@ interface Subscription {
   created_at: string;
 }
 
-// PREMIUM FEATURE: Context type
 interface SubscriptionContextType {
   subscription: Subscription | null;
   isPremium: boolean;
@@ -31,29 +28,28 @@ interface SubscriptionContextType {
   hasPremiumFeature: (feature: string) => boolean;
 }
 
-// PREMIUM FEATURE: Free plan limits
 const FREE_LINK_LIMIT = 5;
 
-// Create context
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
-// PREMIUM FEATURE: Provider component that wraps the app
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [linkCount, setLinkCount] = useState(0);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  // Fetch subscription and link count
   const fetchSubscriptionData = async () => {
     try {
-      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
         setSubscription(null);
+        setUserId(null);
         setIsLoading(false);
         return;
       }
+
+      setUserId(user.id);
 
       // Fetch subscription
       const { data: subData, error: subError } = await supabase
@@ -66,6 +62,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         console.error('Error fetching subscription:', subError);
       }
 
+      console.log('Fetched subscription:', subData);
+
       // Fetch link count
       const { count, error: countError } = await supabase
         .from('links')
@@ -76,7 +74,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         console.error('Error fetching link count:', countError);
       }
 
-      setSubscription(subData || {
+      const newSub = subData || {
         id: '',
         user_id: user.id,
         stripe_customer_id: null,
@@ -86,9 +84,12 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         current_period_end: null,
         cancel_at_period_end: false,
         created_at: new Date().toISOString(),
-      });
-      
+      };
+
+      setSubscription(newSub);
       setLinkCount(count || 0);
+      
+      console.log('Subscription set, status:', newSub.status, 'isPremium:', newSub.status === 'active');
     } catch (error) {
       console.error('Error in subscription fetch:', error);
     } finally {
@@ -96,11 +97,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Check subscription on mount and auth changes
   useEffect(() => {
     fetchSubscriptionData();
 
-    // Subscribe to auth changes
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(() => {
       fetchSubscriptionData();
     });
@@ -110,28 +109,41 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // PREMIUM GATE: Determine if user has premium
+  // Real-time subscription updates
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel('subscription_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'subscriptions',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          console.log('Subscription changed:', payload);
+          fetchSubscriptionData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
+
   const isPremium = subscription?.status === 'active' || subscription?.status === 'trialing';
-
-  // PREMIUM GATE: Max links based on plan
   const maxLinks = isPremium ? Infinity : FREE_LINK_LIMIT;
-
-  // PREMIUM GATE: Can add more links?
   const canAddLink = isPremium || linkCount < FREE_LINK_LIMIT;
 
-  // PREMIUM GATE: Check specific premium features
   const hasPremiumFeature = (feature: string): boolean => {
     const premiumFeatures = [
-      'unlimited_links',
-      'custom_themes',
-      'analytics',
-      'custom_colors',
-      'custom_fonts',
-      'remove_branding',
-      'custom_slug',
-      'reorder_links',
+      'unlimited_links', 'custom_themes', 'analytics', 'custom_colors',
+      'custom_fonts', 'remove_branding', 'custom_slug', 'reorder_links',
     ];
-    
     return isPremium || !premiumFeatures.includes(feature);
   };
 
@@ -153,7 +165,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// PREMIUM FEATURE: Hook to use subscription context
 export function useSubscription() {
   const context = useContext(SubscriptionContext);
   if (context === undefined) {

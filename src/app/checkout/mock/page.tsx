@@ -6,7 +6,6 @@ import { CheckCircle, Sparkles, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
-// MOCK CHECKOUT PAGE
 export default function MockCheckoutPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -25,47 +24,30 @@ export default function MockCheckoutPage() {
     setIsActivating(true);
     
     try {
-      // First check if subscription exists
-      const { data: existingSub } = await supabase
-        .from('subscriptions')
-        .select('id')
-        .eq('user_id', userId)
-        .single();
-
+      console.log('Activating premium for user:', userId);
+      
+      // Update subscription directly using user_id
       const subId = `mock_sub_${Date.now()}`;
       
-      if (existingSub) {
-        // Update existing subscription
-        const { error: subError } = await supabase
-          .from('subscriptions')
-          .update({
-            stripe_customer_id: `mock_cust_${userId.slice(0, 8)}`,
-            stripe_subscription_id: subId,
-            status: 'active',
-            plan: 'premium',
-            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            cancel_at_period_end: false,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('user_id', userId);
+      const { error: subError } = await supabase
+        .from('subscriptions')
+        .update({
+          stripe_customer_id: `mock_cust_${userId.slice(0, 8)}`,
+          stripe_subscription_id: subId,
+          status: 'active',
+          plan: 'premium',
+          current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          cancel_at_period_end: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
 
-        if (subError) throw subError;
-      } else {
-        // Insert new subscription
-        const { error: subError } = await supabase
-          .from('subscriptions')
-          .insert({
-            user_id: userId,
-            stripe_customer_id: `mock_cust_${userId.slice(0, 8)}`,
-            stripe_subscription_id: subId,
-            status: 'active',
-            plan: 'premium',
-            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            cancel_at_period_end: false,
-          });
-
-        if (subError) throw subError;
+      if (subError) {
+        console.error('Subscription update error:', subError);
+        throw subError;
       }
+      
+      console.log('Subscription updated successfully');
 
       // Update profile
       const { error: profileError } = await supabase
@@ -73,14 +55,19 @@ export default function MockCheckoutPage() {
         .update({ is_premium: true })
         .eq('id', userId);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        throw profileError;
+      }
+      
+      console.log('Profile updated successfully');
 
       setIsComplete(true);
       toast.success('Premium activated!');
       
       setTimeout(() => {
         router.push('/dashboard?checkout=success');
-      }, 2000);
+      }, 1500);
     } catch (error) {
       console.error('Error activating premium:', error);
       toast.error('Failed to activate premium: ' + (error as Error).message);
