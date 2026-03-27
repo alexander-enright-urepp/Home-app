@@ -10,6 +10,7 @@ interface LinkCardProps {
   url: string;
   icon?: string | null;
   color?: string | null;
+  accentColor?: string;
 }
 
 // Convert kebab-case to PascalCase for Lucide icons
@@ -26,7 +27,14 @@ function isEmoji(str: string): boolean {
   return emojiRegex.test(str);
 }
 
-export function LinkCard({ title, subtitle, url, icon, color }: LinkCardProps) {
+export function LinkCard({ 
+  title, 
+  subtitle, 
+  url, 
+  icon, 
+  color,
+  accentColor = "#0f172a"
+}: LinkCardProps) {
   const emoji = icon && isEmoji(icon);
   
   // Try to get the Lucide icon
@@ -46,19 +54,32 @@ export function LinkCard({ title, subtitle, url, icon, color }: LinkCardProps) {
       className="group flex items-center gap-4 p-4 rounded-2xl shadow-md transition-all duration-200 ease-in-out hover:scale-[1.02] active:scale-[0.98]"
       style={{ backgroundColor: color || "#ffffff" }}
     >
-      <div className="flex-shrink-0 w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-2xl">
+      <div 
+        className="flex-shrink-0 w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-2xl"
+      >
         {emoji ? (
           <span>{icon}</span>
         ) : LucideIconComponent ? (
-          <LucideIconComponent className="w-6 h-6 text-brand" />
+          <LucideIconComponent 
+            className="w-6 h-6" 
+            style={{ color: accentColor }}
+          />
         ) : (
-          <Link2 className="w-6 h-6 text-brand" />
+          <Link2 
+            className="w-6 h-6" 
+            style={{ color: accentColor }}
+          />
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-brand truncate">{title}</p>
+        <p 
+          className="font-semibold truncate"
+          style={{ color: accentColor }}
+        >
+          {title}
+        </p>
         {subtitle && (
-          <p className="text-sm text-muted truncate">{subtitle}</p>
+          <p className="text-sm truncate opacity-70">{subtitle}</p>
         )}
       </div>
     </a>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   DndContext,
@@ -18,14 +18,19 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Plus, ExternalLink, LogOut } from "lucide-react";
+import { Plus, ExternalLink, LogOut, User, BarChart3, Palette, CreditCard, CheckCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useSubscription, SubscriptionProvider } from "@/lib/subscription";
 import { LinkRow } from "@/components/LinkRow";
 import { LinkModal } from "@/components/LinkModal";
 import { SkeletonCard } from "@/components/SkeletonCard";
+import { UpgradeCTA, PremiumBadge, LinkLimitIndicator } from "@/components/UpgradeCTA";
+import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
+import { ThemeSelector } from "@/components/ThemeSelector";
+import { SubscriptionManager } from "@/components/SubscriptionManager";
 import toast from "react-hot-toast";
 
-interface Link {
+interface LinkItem {
   id: string;
   title: string;
   subtitle: string | null;
@@ -39,16 +44,47 @@ interface Link {
 interface Profile {
   username: string;
   display_name: string | null;
+  bio: string | null;
+  is_premium: boolean;
+  theme_preference: string;
 }
 
-export default function DashboardPage() {
+// PREMIUM FEATURE: Tab type for navigation
+type Tab = 'links' | 'analytics' | 'themes' | 'subscription';
+
+// PREMIUM GATE: Maximum links for free users
+const FREE_LINK_LIMIT = 5;
+
+function DashboardContent() {
   const router = useRouter();
-  const [links, setLinks] = useState<Link[]>([]);
+  const searchParams = useSearchParams();
+  const { isPremium, canAddLink, linkCount, refreshSubscription } = useSubscription();
+  
+  // State
+  const [links, setLinks] = useState<LinkItem[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingLink, setEditingLink] = useState<Link | null>(null);
+  const [editingLink, setEditingLink] = useState<LinkItem | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isEditingBio, setIsEditingBio] = useState(false);
+  const [bioInput, setBioInput] = useState("");
+  const [activeTab, setActiveTab] = useState<Tab>('links');
+  const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
+
+  // Check for checkout success/canceled params
+  useEffect(() => {
+    const checkout = searchParams.get('checkout');
+    if (checkout === 'success') {
+      setShowCheckoutSuccess(true);
+      refreshSubscription();
+      // Clear the param
+      router.replace('/dashboard');
+    } else if (checkout === 'canceled') {
+      toast('Checkout canceled', { icon: '⚠️' });
+      router.replace('/dashboard');
+    }
+  }, [searchParams, router, refreshSubscription]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -62,22 +98,22 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        // No user, redirect to login
         router.push("/login");
         return;
       }
 
       setUserId(user.id);
 
-      // Fetch profile
+      // Fetch profile with premium status
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("username, display_name")
+        .select("username, display_name, bio, is_premium, theme_preference")
         .eq("id", user.id)
         .single();
 
       if (profileData) {
         setProfile(profileData);
+        setBioInput(profileData.bio || "");
       }
 
       // Fetch links
@@ -109,6 +145,7 @@ export default function DashboardPage() {
     router.push("/");
   };
 
+  // PREMIUM GATE: Check link limit before adding
   const handleAddLink = async (formData: {
     title: string;
     subtitle: string;
@@ -118,6 +155,12 @@ export default function DashboardPage() {
     is_visible: boolean;
   }) => {
     if (!userId) return;
+
+    // PREMIUM GATE: Prevent free users from exceeding 5 links
+    if (!isPremium && links.length >= FREE_LINK_LIMIT) {
+      toast.error("Free plan limited to 5 links. Upgrade to Premium for unlimited!");
+      return;
+    }
 
     const newLink = {
       user_id: userId,
@@ -141,6 +184,7 @@ export default function DashboardPage() {
     }
 
     setLinks([...links, data]);
+    toast.success("Link added!");
   };
 
   const handleEditLink = async (formData: {
@@ -220,8 +264,15 @@ export default function DashboardPage() {
     );
   };
 
+  // PREMIUM FEATURE: Drag-drop reordering (gated for free users)
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
+
+    // PREMIUM GATE: Free users can't reorder
+    if (!isPremium) {
+      toast.error("Link reordering is a Premium feature!");
+      return;
+    }
 
     if (over && active.id !== over.id) {
       const oldIndex = links.findIndex((link) => link.id === active.id);
@@ -231,41 +282,64 @@ export default function DashboardPage() {
       setLinks(newLinks);
 
       // Update order in database
-      const updates = newLinks.map((link, index) => ({
-        id: link.id,
-        order: index,
-      }));
-
-      const { error } = await supabase.from("links").upsert(
-        updates.map((u) => ({
-          id: u.id,
-          order: u.order,
-        }))
-      );
-
-      if (error) {
+      try {
+        for (let i = 0; i < newLinks.length; i++) {
+          const { error } = await supabase
+            .from("links")
+            .update({ order: i })
+            .eq("id", newLinks[i].id);
+          
+          if (error) throw error;
+        }
+        toast.success("Order saved");
+      } catch (error) {
         toast.error("Failed to save order");
         console.error("Error updating order:", error);
-      } else {
-        toast.success("Order saved");
       }
     }
   };
 
+  const handleSaveBio = async () => {
+    if (!userId) return;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ bio: bioInput })
+      .eq("id", userId);
+
+    if (error) {
+      toast.error("Failed to save bio");
+      return;
+    }
+
+    setProfile((prev) => prev ? { ...prev, bio: bioInput } : null);
+    setIsEditingBio(false);
+    toast.success("Bio updated");
+  };
+
+  const handleThemeChange = (themeId: string) => {
+    setProfile((prev) => prev ? { ...prev, theme_preference: themeId } : null);
+  };
+
   const openAddModal = () => {
+    // PREMIUM GATE: Check before opening modal
+    if (!canAddLink) {
+      toast.error("Link limit reached! Upgrade to Premium for unlimited links.");
+      return;
+    }
     setEditingLink(null);
     setIsModalOpen(true);
   };
 
-  const openEditModal = (link: Link) => {
+  const openEditModal = (link: LinkItem) => {
     setEditingLink(link);
     setIsModalOpen(true);
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen p-4 sm:p-8">
-        <div className="max-w-2xl mx-auto">
+      <div className="min-h-screen p-4 sm:p-8 bg-slate-50">
+        <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div className="h-8 w-24 bg-slate-200 rounded animate-pulse" />
             <div className="h-8 w-20 bg-slate-200 rounded animate-pulse" />
@@ -280,95 +354,269 @@ export default function DashboardPage() {
     );
   }
 
-  return (
-    <div className="min-h-screen p-4 sm:p-8">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-display">Home</h1>
-            {profile && (
-              <span className="text-muted">@{profile.username}</span>
-            )}
+  // Checkout success message
+  if (showCheckoutSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-emerald-50 p-4">
+        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">
+          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-8 h-8 text-emerald-500" />
           </div>
-          <div className="flex items-center gap-2">
-            {profile && (
-              <Link
-                href={`/${profile.username}`}
-                target="_blank"
-                className="flex items-center gap-1 px-3 py-2 text-sm border rounded-lg hover:bg-surface transition-colors"
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">
+            Welcome to Premium!
+          </h1>
+          <p className="text-slate-600 mb-6">
+            Your subscription is now active. You now have access to all premium features.
+          </p>
+          <button
+            onClick={() => setShowCheckoutSuccess(false)}
+            className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-medium transition-colors"
+          >
+            Go to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 sm:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-display">Home</h1>
+              {profile && (
+                <span className="text-slate-500">@{profile.username}</span>
+              )}
+              {isPremium && <PremiumBadge />}
+            </div>
+            <div className="flex items-center gap-2">
+              {profile && (
+                <Link
+                  href={`/${profile.username}`}
+                  target="_blank"
+                  className="flex items-center gap-1 px-3 py-2 text-sm border rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Preview
+                </Link>
+              )}
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-1 px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded-lg transition-colors"
               >
-                <ExternalLink className="w-4 h-4" />
-                Preview
-              </Link>
-            )}
-            <button
-              onClick={handleSignOut}
-              className="flex items-center gap-1 px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
-            </button>
+                <LogOut className="w-4 h-4" />
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
+      </header>
 
-        {/* Add Link Button */}
-        <button
-          onClick={openAddModal}
-          className="w-full py-3 mb-6 border-2 border-dashed border-slate-300 rounded-xl text-muted hover:border-accent hover:text-accent transition-colors flex items-center justify-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Add Link
-        </button>
-
-        {/* Links List */}
-        {links.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-surface flex items-center justify-center">
-              <Plus className="w-8 h-8 text-muted" />
-            </div>
-            <p className="text-muted">
-              You haven&apos;t added any links yet.{" "}
+      {/* Tab Navigation */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-4xl mx-auto px-4 sm:px-8">
+          <nav className="flex gap-1 -mb-px">
+            {[
+              { id: 'links', label: 'Links', icon: ExternalLink },
+              { id: 'analytics', label: 'Analytics', icon: BarChart3, premium: true },
+              { id: 'themes', label: 'Themes', icon: Palette },
+              { id: 'subscription', label: 'Subscription', icon: CreditCard },
+            ].map((tab) => (
               <button
-                onClick={openAddModal}
-                className="text-accent hover:underline"
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as Tab)}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-emerald-500 text-emerald-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
               >
-                Add your first one!
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+                {tab.premium && !isPremium && (
+                  <span className="bg-amber-100 text-amber-700 text-xs px-1.5 py-0.5 rounded">PRO</span>
+                )}
               </button>
-            </p>
-          </div>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={links.map((link) => link.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-3">
-                {links.map((link) => (
-                  <LinkRow
-                    key={link.id}
-                    id={link.id}
-                    title={link.title}
-                    subtitle={link.subtitle}
-                    url={link.url}
-                    icon={link.icon}
-                    isVisible={link.is_visible}
-                    onToggleVisibility={() =>
-                      handleToggleVisibility(link.id, link.is_visible)
-                    }
-                    onEdit={() => openEditModal(link)}
-                    onDelete={() => handleDeleteLink(link.id)}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        )}
+            ))}
+          </nav>
+        </div>
       </div>
+
+      {/* Main Content */}
+      <main className="max-w-4xl mx-auto px-4 sm:px-8 py-8">
+        {/* Links Tab */}
+        {activeTab === 'links' && (
+          <div className="space-y-8">
+            {/* Bio Section */}
+            <div className="bg-white rounded-xl p-6 border border-slate-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <User className="w-5 h-5 text-slate-400" />
+                  <h2 className="font-medium">Bio</h2>
+                </div>
+                {!isEditingBio ? (
+                  <button
+                    onClick={() => setIsEditingBio(true)}
+                    className="text-sm text-emerald-600 hover:underline"
+                  >
+                    Edit
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setIsEditingBio(false);
+                        setBioInput(profile?.bio || "");
+                      }}
+                      className="text-sm text-slate-500 hover:text-slate-700"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveBio}
+                      className="text-sm text-emerald-600 hover:underline"
+                    >
+                      Save
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {isEditingBio ? (
+                <textarea
+                  value={bioInput}
+                  onChange={(e) => setBioInput(e.target.value)}
+                  placeholder="Tell people about yourself..."
+                  className="w-full p-3 border rounded-lg resize-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  rows={3}
+                  maxLength={160}
+                />
+              ) : (
+                <p className="text-slate-600">
+                  {profile?.bio || "No bio yet. Click Edit to add one."}
+                </p>
+              )}
+              
+              {isEditingBio && (
+                <p className="text-xs text-slate-500 mt-2">
+                  {bioInput.length}/160 characters
+                </p>
+              )}
+            </div>
+
+            {/* Link Limit Indicator */}
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900">Your Links</h2>
+              <LinkLimitIndicator 
+                current={links.length} 
+                max={FREE_LINK_LIMIT} 
+                isPremium={isPremium} 
+              />
+            </div>
+
+            {/* Add Link Button with limit check */}
+            <button
+              onClick={openAddModal}
+              disabled={!canAddLink}
+              className={`w-full py-4 mb-2 border-2 border-dashed rounded-xl transition-colors flex items-center justify-center gap-2 ${
+                canAddLink
+                  ? 'border-slate-300 text-slate-500 hover:border-emerald-500 hover:text-emerald-500'
+                  : 'border-slate-200 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              <Plus className="w-5 h-5" />
+              {canAddLink ? 'Add Link' : 'Link Limit Reached'}
+            </button>
+
+            {/* Show upgrade CTA when at or near limit */}
+            {!isPremium && links.length >= FREE_LINK_LIMIT - 1 && (
+              <UpgradeCTA 
+                title="Need more links?"
+                description={`You're using ${links.length}/${FREE_LINK_LIMIT} free links. Upgrade for unlimited!`}
+                size="small"
+              />
+            )}
+
+            {/* Links List */}
+            {links.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-xl border border-slate-200">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
+                  <Plus className="w-8 h-8 text-slate-400" />
+                </div>
+                <p className="text-slate-600">
+                  You haven't added any links yet.{" "}
+                  <button
+                    onClick={openAddModal}
+                    className="text-emerald-600 hover:underline font-medium"
+                  >
+                    Add your first one!
+                  </button>
+                </p>
+              </div>
+            ) : (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={links.map((link) => link.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-3">
+                    {links.map((link) => (
+                      <LinkRow
+                        key={link.id}
+                        id={link.id}
+                        title={link.title}
+                        subtitle={link.subtitle}
+                        url={link.url}
+                        icon={link.icon}
+                        isVisible={link.is_visible}
+                        onToggleVisibility={() =>
+                          handleToggleVisibility(link.id, link.is_visible)
+                        }
+                        onEdit={() => openEditModal(link)}
+                        onDelete={() => handleDeleteLink(link.id)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
+
+            {/* Reorder hint for free users */}
+            {!isPremium && links.length > 1 && (
+              <p className="text-sm text-slate-500 text-center">
+                💡 Premium users can drag and drop to reorder links
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Analytics Tab */}
+        {activeTab === 'analytics' && (
+          <AnalyticsDashboard />
+        )}
+
+        {/* Themes Tab */}
+        {activeTab === 'themes' && (
+          <div className="bg-white rounded-xl border border-slate-200 p-6">
+            <ThemeSelector 
+              currentTheme={profile?.theme_preference || 'default'}
+              onThemeChange={handleThemeChange}
+            />
+          </div>
+        )}
+
+        {/* Subscription Tab */}
+        {activeTab === 'subscription' && (
+          <SubscriptionManager />
+        )}
+      </main>
 
       <LinkModal
         isOpen={isModalOpen}
@@ -392,5 +640,14 @@ export default function DashboardPage() {
         mode={editingLink ? "edit" : "add"}
       />
     </div>
+  );
+}
+
+// Wrap with SubscriptionProvider
+export default function DashboardPage() {
+  return (
+    <SubscriptionProvider>
+      <DashboardContent />
+    </SubscriptionProvider>
   );
 }
