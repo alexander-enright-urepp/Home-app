@@ -18,7 +18,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Plus, ExternalLink, LogOut, User, BarChart3, Palette, CreditCard, CheckCircle, Copy, Check, Camera, Upload, X } from "lucide-react";
+import { Plus, ExternalLink, LogOut, User, BarChart3, Palette, CreditCard, CheckCircle, Copy, Check, Camera, Upload, X, Sparkles, Type } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSubscription, SubscriptionProvider } from "@/lib/subscription";
 import { LinkRow } from "@/components/LinkRow";
@@ -415,8 +415,81 @@ function DashboardContent() {
     }
   };
 
-  const handleThemeChange = (themeId: string) => {
+  const handleThemeChange = async (themeId: string) => {
+    if (!userId) return;
+    
+    const { error } = await supabase
+      .from("profiles")
+      .update({ theme_preference: themeId })
+      .eq("id", userId);
+    
+    if (error) {
+      toast.error("Failed to update theme");
+      return;
+    }
+    
     setProfile((prev) => prev ? { ...prev, theme_preference: themeId } : null);
+    toast.success("Theme updated!");
+  };
+
+  // PREMIUM: Handle custom color changes
+  const handleColorChange = async (colorKey: string, value: string) => {
+    if (!userId || !isPremium) return;
+    
+    const newColors = {
+      ...profile?.custom_colors,
+      [colorKey]: value,
+    };
+    
+    const { error } = await supabase
+      .from("profiles")
+      .update({ custom_colors: newColors })
+      .eq("id", userId);
+    
+    if (error) {
+      toast.error("Failed to update color");
+      return;
+    }
+    
+    setProfile((prev) => prev ? { ...prev, custom_colors: newColors } : null);
+  };
+
+  // PREMIUM: Handle branding toggle
+  const handleBrandingToggle = async () => {
+    if (!userId || !isPremium) return;
+    
+    const newValue = !profile?.remove_branding;
+    
+    const { error } = await supabase
+      .from("profiles")
+      .update({ remove_branding: newValue })
+      .eq("id", userId);
+    
+    if (error) {
+      toast.error("Failed to update branding");
+      return;
+    }
+    
+    setProfile((prev) => prev ? { ...prev, remove_branding: newValue } : null);
+    toast.success(newValue ? "Branding removed!" : "Branding restored");
+  };
+
+  // PREMIUM: Handle font change
+  const handleFontChange = async (font: string) => {
+    if (!userId || !isPremium) return;
+    
+    const { error } = await supabase
+      .from("profiles")
+      .update({ custom_font: font })
+      .eq("id", userId);
+    
+    if (error) {
+      toast.error("Failed to update font");
+      return;
+    }
+    
+    setProfile((prev) => prev ? { ...prev, custom_font: font } : null);
+    toast.success("Font updated!");
   };
 
   // Copy public profile link to clipboard
@@ -795,11 +868,117 @@ function DashboardContent() {
 
         {/* Themes Tab */}
         {activeTab === 'themes' && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <ThemeSelector 
-              currentTheme={profile?.theme_preference || 'default'}
-              onThemeChange={handleThemeChange}
-            />
+          <div className="space-y-6">
+            {/* Theme Selector */}
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+              <ThemeSelector 
+                currentTheme={profile?.theme_preference || 'default'}
+                onThemeChange={handleThemeChange}
+              />
+            </div>
+
+            {/* PREMIUM: Custom Colors */}
+            {isPremium && (
+              <div className="bg-white rounded-xl border border-slate-200 p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Palette className="w-5 h-5 text-emerald-500" />
+                  <h3 className="font-semibold text-slate-900">Custom Colors</h3>
+                  <PremiumBadge />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm text-slate-600 mb-1 block">Primary Text</label>
+                    <input 
+                      type="color" 
+                      value={profile?.custom_colors?.primary || '#0f172a'}
+                      onChange={(e) => handleColorChange('primary', e.target.value)}
+                      className="w-full h-10 rounded-lg cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-slate-600 mb-1 block">Secondary Text</label>
+                    <input 
+                      type="color" 
+                      value={profile?.custom_colors?.secondary || '#334155'}
+                      onChange={(e) => handleColorChange('secondary', e.target.value)}
+                      className="w-full h-10 rounded-lg cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-slate-600 mb-1 block">Background</label>
+                    <input 
+                      type="color" 
+                      value={profile?.custom_colors?.background || '#ffffff'}
+                      onChange={(e) => handleColorChange('background', e.target.value)}
+                      className="w-full h-10 rounded-lg cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-slate-600 mb-1 block">Accent</label>
+                    <input 
+                      type="color" 
+                      value={profile?.custom_colors?.accent || '#10b981'}
+                      onChange={(e) => handleColorChange('accent', e.target.value)}
+                      className="w-full h-10 rounded-lg cursor-pointer"
+                    />
+                  </div>
+                </div>
+                
+                <p className="text-sm text-slate-500 mt-4">
+                  Custom colors override the theme colors on your public profile.
+                </p>
+              </div>
+            )}
+
+            {/* PREMIUM: Branding Toggle */}
+            {isPremium && (
+              <div className="bg-white rounded-xl border border-slate-200 p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-emerald-500" />
+                    <div>
+                      <h3 className="font-semibold text-slate-900">Remove Home Branding</h3>
+                      <p className="text-sm text-slate-500">Hide "Made with Home" from your profile</p>
+                    </div>
+                    <PremiumBadge />
+                  </div>
+                  
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={profile?.remove_branding || false}
+                      onChange={handleBrandingToggle}
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* PREMIUM: Custom Font */}
+            {isPremium && (
+              <div className="bg-white rounded-xl border border-slate-200 p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Type className="w-5 h-5 text-emerald-500" />
+                  <h3 className="font-semibold text-slate-900">Custom Font</h3>
+                  <PremiumBadge />
+                </div>
+                
+                <select 
+                  value={profile?.custom_font || 'dm-sans'}
+                  onChange={(e) => handleFontChange(e.target.value)}
+                  className="w-full p-3 border rounded-lg"
+                >
+                  <option value="dm-sans">DM Sans (Default)</option>
+                  <option value="dm-serif">DM Serif Display</option>
+                  <option value="inter">Inter</option>
+                  <option value="roboto">Roboto</option>
+                  <option value="poppins">Poppins</option>
+                </select>
+              </div>
+            )}
           </div>
         )}
 
