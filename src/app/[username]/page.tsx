@@ -147,6 +147,18 @@ export default function PublicProfilePage({ params }: PageProps) {
     return theme.colors.accent;
   };
 
+  // Get secondary color for subtitle text
+  const getTextColor = () => {
+    if (!profile) return THEMES.default.colors.secondary;
+    
+    if (profile.is_premium && profile.custom_colors?.secondary) {
+      return profile.custom_colors.secondary;
+    }
+    
+    const theme = THEMES[profile.theme_preference] || THEMES.default;
+    return theme.colors.secondary;
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-start pt-12 px-4 bg-slate-50">
@@ -254,6 +266,7 @@ export default function PublicProfilePage({ params }: PageProps) {
                   icon={link.icon}
                   color={link.color}
                   accentColor={getAccentColor()}
+                  textColor={getTextColor()}
                 />
               </div>
             ))

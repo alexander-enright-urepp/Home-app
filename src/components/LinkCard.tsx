@@ -11,6 +11,7 @@ interface LinkCardProps {
   icon?: string | null;
   color?: string | null;
   accentColor?: string;
+  textColor?: string; // For subtitle text
 }
 
 // Convert kebab-case to PascalCase for Lucide icons
@@ -33,7 +34,8 @@ export function LinkCard({
   url, 
   icon, 
   color,
-  accentColor = "#0f172a"
+  accentColor = "#0f172a",
+  textColor = "#334155" // Default gray for subtitle
 }: LinkCardProps) {
   const emoji = icon && isEmoji(icon);
   
@@ -77,9 +79,14 @@ export function LinkCard({
           style={{ color: accentColor }}
         >
           {title}
-        </p>
+003c/p>
         {subtitle && (
-          <p className="text-sm truncate opacity-70">{subtitle}</p>
+          <p 
+            className="text-sm truncate"
+            style={{ color: textColor }}
+          >
+            {subtitle}
+          </p>
         )}
       </div>
     </a>
