@@ -247,8 +247,8 @@ export default function LoginPage() {
       console.log("Existing profile:", existingProfile);
       
       // Use RPC function to handle upsert
-      console.log("Calling upsert_profile RPC...");
-      const { error: rpcError } = await supabase.rpc('upsert_profile', {
+      console.log("Calling save_profile RPC...");
+      const { error: rpcError } = await supabase.rpc('save_profile', {
         p_user_id: userId,
         p_username: username,
         p_display_name: '',
