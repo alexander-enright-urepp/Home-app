@@ -20,6 +20,34 @@ export default function LoginPage() {
   const [shouldRedirect, setShouldRedirect] = useState(false);
   const [pendingSignup, setPendingSignup] = useState<{ email: string; password: string } | null>(null);
 
+  // Check if user is already logged in but needs a username
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        // Check if user has a profile
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", session.user.id)
+          .single();
+        
+        if (!profile) {
+          // Logged in but no profile - show username step
+          console.log("User logged in but no profile, showing username step");
+          setShowUsernameStep(true);
+        } else {
+          // Has profile - redirect to dashboard
+          console.log("User has profile, redirecting to dashboard");
+          window.location.href = "/dashboard";
+        }
+      }
+    };
+    
+    checkExistingSession();
+  }, []);
+
   useEffect(() => {
     if (shouldRedirect) {
       console.log("Effect triggered, navigating to dashboard");
@@ -81,10 +109,26 @@ export default function LoginPage() {
 
     if (data.session) {
       console.log("Login successful, session exists:", data.session.user.email);
-      toast.success("Welcome back!");
-      // Trigger navigation via effect
-      console.log("Setting shouldRedirect to true");
-      setShouldRedirect(true);
+      
+      // Check if user has a profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", data.session.user.id)
+        .single();
+      
+      if (profile) {
+        // Has profile, go to dashboard
+        toast.success("Welcome back!");
+        console.log("Setting shouldRedirect to true");
+        setShouldRedirect(true);
+      } else {
+        // No profile, show username step
+        console.log("No profile found, showing username step");
+        setPendingSignup({ email, password });
+        setShowUsernameStep(true);
+        setIsLoading(false);
+      }
     } else {
       console.log("No session after login");
       setErrors({ general: "Login failed - no session created" });
@@ -141,6 +185,9 @@ export default function LoginPage() {
       setShowUsernameStep(true);
       setIsLoading(false);
       toast.success("Account created! Please choose a username.");
+      
+      // Prevent auto-redirect by not setting shouldRedirect here
+      // User must create username first
     }
   };
 
@@ -157,83 +204,83 @@ export default function LoginPage() {
 
     setIsLoading(true);
     
-    // Check if username exists
-    const { data: existingUser } = await supabase
-      .from("profiles")
-      .select("username")
-      .eq("username", username)
-      .single();
+    try {
+      // Check if username exists
+      const { data: existingUser, error: checkError } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("username", username)
+        .maybeSingle();
 
-    if (existingUser) {
-      setErrors({ username: "This username is already taken" });
-      setIsLoading(false);
-      return;
-    }
+      if (existingUser) {
+        setErrors({ username: "This username is already taken" });
+        setIsLoading(false);
+        return;
+      }
 
-    // Get current user (should be logged in from signup)
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      // If not logged in, try to auto-login with pending credentials
-      if (pendingSignup) {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+      // Get current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error("Session error:", sessionError);
+      }
+      
+      let userId = session?.user?.id;
+      
+      // If no session, try to sign in with pending credentials
+      if (!userId && pendingSignup) {
+        console.log("No session, attempting auto-login...");
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: pendingSignup.email,
           password: pendingSignup.password,
         });
         
         if (signInError) {
-          setErrors({ general: "Session expired. Please sign up again." });
+          console.error("Auto-login error:", signInError);
+          // Email not confirmed yet - this is expected
+          if (signInError.message.includes("Email not confirmed")) {
+            setErrors({ 
+              general: "Please check your email and click the verification link first, then return to create your username." 
+            });
+            setIsLoading(false);
+            return;
+          }
+          setErrors({ general: "Login failed: " + signInError.message });
           setIsLoading(false);
-          setShowUsernameStep(false);
           return;
         }
         
-        // Get user after login
-        const { data: { user: loggedInUser } } = await supabase.auth.getUser();
-        if (!loggedInUser) {
-          setErrors({ general: "Login failed. Please try again." });
-          setIsLoading(false);
-          return;
-        }
-        
-        // Create profile with logged in user
-        const { error } = await supabase.from("profiles").insert({
-          id: loggedInUser.id,
-          username,
-        });
-
-        if (error) {
-          console.error("Profile insert error:", error);
-          setErrors({ general: "Failed to create profile. Please try again." });
-          setIsLoading(false);
-          return;
-        }
-
-        toast.success("Welcome to Home!");
-        setShouldRedirect(true);
-        return;
+        userId = signInData.user?.id;
       }
       
-      setErrors({ general: "User not found. Please try signing up again." });
+      if (!userId) {
+        setErrors({ general: "User session not found. Please try signing up again." });
+        setIsLoading(false);
+        return;
+      }
+
+      console.log("Creating profile for user:", userId);
+      
+      // Create profile
+      const { error: insertError } = await supabase.from("profiles").insert({
+        id: userId,
+        username,
+      });
+
+      if (insertError) {
+        console.error("Profile insert error:", insertError);
+        setErrors({ general: "Failed to create profile: " + insertError.message });
+        setIsLoading(false);
+        return;
+      }
+
+      toast.success("Welcome to Home!");
+      setShouldRedirect(true);
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      setErrors({ general: "An unexpected error occurred. Please try again." });
       setIsLoading(false);
-      return;
     }
-
-    // Create profile with current user
-    const { error } = await supabase.from("profiles").insert({
-      id: user.id,
-      username,
-    });
-
-    if (error) {
-      console.error("Profile insert error:", error);
-      setErrors({ general: "Failed to create profile. Please try again." });
-      setIsLoading(false);
-      return;
-    }
-
-    toast.success("Welcome to Home!");
-    setShouldRedirect(true);
   };
 
   if (showUsernameStep) {
