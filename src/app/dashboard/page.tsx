@@ -77,9 +77,29 @@ function DashboardContent() {
     const checkout = searchParams.get('checkout');
     if (checkout === 'success') {
       setShowCheckoutSuccess(true);
-      refreshSubscription();
-      // Clear the param
-      router.replace('/dashboard');
+      // Refresh subscription data and re-fetch profile
+      const refreshData = async () => {
+        await refreshSubscription();
+        // Also re-fetch profile to get updated is_premium status
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('username, display_name, bio, is_premium, theme_preference')
+            .eq('id', user.id)
+            .single();
+          if (profileData) {
+            setProfile(profileData);
+            console.log('Profile refreshed, is_premium:', profileData.is_premium);
+          }
+        }
+      };
+      refreshData();
+      // Clear the param after a delay so success message shows
+      setTimeout(() => {
+        router.replace('/dashboard');
+        setShowCheckoutSuccess(false);
+      }, 2500);
     } else if (checkout === 'canceled') {
       toast('Checkout canceled', { icon: '⚠️' });
       router.replace('/dashboard');
