@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { Avatar } from "@/components/Avatar";
 import { LinkCard } from "@/components/LinkCard";
 import { SkeletonCard, SkeletonAvatar, SkeletonText } from "@/components/SkeletonCard";
+import { fontVariables } from "@/lib/fonts";
 
 interface Profile {
   id: string;
@@ -34,7 +35,6 @@ interface PageProps {
   params: { username: string };
 }
 
-// PREMIUM FEATURE: Theme definitions
 const THEMES: Record<string, { colors: { primary: string; secondary: string; background: string; accent: string } }> = {
   default: { colors: { primary: "#0f172a", secondary: "#334155", background: "#ffffff", accent: "#10b981" } },
   dark: { colors: { primary: "#ffffff", secondary: "#94a3b8", background: "#0f172a", accent: "#10b981" } },
@@ -55,7 +55,6 @@ export default function PublicProfilePage({ params }: PageProps) {
   useEffect(() => {
     async function fetchData() {
       try {
-        // Fetch profile with premium fields
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("id, username, display_name, bio, avatar_url, is_premium, theme_preference, custom_colors, custom_font, remove_branding")
@@ -70,7 +69,6 @@ export default function PublicProfilePage({ params }: PageProps) {
 
         setProfile(profileData);
 
-        // Fetch visible links
         const { data: linksData, error: linksError } = await supabase
           .from("links")
           .select("id, title, subtitle, url, icon, color, order")
@@ -94,11 +92,9 @@ export default function PublicProfilePage({ params }: PageProps) {
     fetchData();
   }, [params.username]);
 
-  // PREMIUM FEATURE: Track link click
   const handleLinkClick = async (linkId: string) => {
     if (!profile) return;
 
-    // Only track if premium user (analytics feature)
     if (profile.is_premium) {
       try {
         await fetch("/api/analytics/track", {
@@ -110,17 +106,14 @@ export default function PublicProfilePage({ params }: PageProps) {
           }),
         });
       } catch (error) {
-        // Silent fail - analytics shouldn't break UX
         console.error("Failed to track click:", error);
       }
     }
   };
 
-  // PREMIUM FEATURE: Get theme styles
   const getThemeStyles = () => {
     if (!profile) return {};
 
-    // Use custom colors if premium user has set them
     if (profile.is_premium && profile.custom_colors) {
       return {
         backgroundColor: profile.custom_colors.background || THEMES.default.colors.background,
@@ -128,7 +121,6 @@ export default function PublicProfilePage({ params }: PageProps) {
       };
     }
 
-    // Otherwise use theme preset
     const theme = THEMES[profile.theme_preference] || THEMES.default;
     return {
       backgroundColor: theme.colors.background,
@@ -136,21 +128,12 @@ export default function PublicProfilePage({ params }: PageProps) {
     };
   };
 
-  // PREMIUM FEATURE: Get font family
   const getFontFamily = () => {
     if (!profile) return '';
-    
-    const fontMap: Record<string, string> = {
-      'dm-sans': 'var(--font-body), sans-serif',
-      'dm-serif': 'var(--font-display), serif',
-      'inter': 'Inter, sans-serif',
-      'roboto': 'Roboto, sans-serif',
-      'poppins': 'Poppins, sans-serif',
-    };
-    
-    return profile.is_premium && profile.custom_font 
-      ? (fontMap[profile.custom_font] || fontMap['dm-sans'])
-      : fontMap['dm-sans'];
+    const fontKey = profile.is_premium && profile.custom_font 
+      ? profile.custom_font 
+      : 'dm-sans';
+    return fontVariables[fontKey] || fontVariables['dm-sans'];
   };
 
   const getAccentColor = () => {
@@ -164,7 +147,6 @@ export default function PublicProfilePage({ params }: PageProps) {
     return theme.colors.accent;
   };
 
-  // Get secondary color for subtitle text
   const getTextColor = () => {
     if (!profile) return THEMES.default.colors.secondary;
     
@@ -238,7 +220,11 @@ export default function PublicProfilePage({ params }: PageProps) {
   return (
     <div 
       className="min-h-screen flex flex-col items-center justify-start pt-12 pb-6 px-4 transition-colors duration-300"
-      style={{...getThemeStyles(), fontFamily: getFontFamily()}}
+      style={{
+        backgroundColor: getThemeStyles().backgroundColor,
+        color: getThemeStyles().color,
+        fontFamily: getFontFamily(),
+      }}
     >
       <div className="w-full max-w-md">
         {/* Profile Header */}

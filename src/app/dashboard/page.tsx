@@ -976,6 +976,11 @@ function DashboardContent() {
                   <option value="inter">Inter</option>
                   <option value="roboto">Roboto</option>
                   <option value="poppins">Poppins</option>
+                  <option value="playfair">Playfair Display</option>
+                  <option value="montserrat">Montserrat</option>
+                  <option value="lora">Lora</option>
+                  <option value="oswald">Oswald</option>
+                  <option value="raleway">Raleway</option>
                 </select>
               </div>
             )}
