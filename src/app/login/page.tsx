@@ -18,6 +18,7 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showUsernameStep, setShowUsernameStep] = useState(false);
   const [shouldRedirect, setShouldRedirect] = useState(false);
+  const [pendingSignup, setPendingSignup] = useState<{ email: string; password: string } | null>(null);
 
   useEffect(() => {
     if (shouldRedirect) {
@@ -116,9 +117,16 @@ export default function LoginPage() {
 
     setIsLoading(true);
     
+    // Sign up WITHOUT email confirmation required
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/dashboard`,
+        data: {
+          email_confirmed: true // Auto-confirm for better UX
+        }
+      }
     });
 
     if (error) {
@@ -128,8 +136,11 @@ export default function LoginPage() {
     }
 
     if (data.user) {
+      // Store email/password temporarily for auto-login after username creation
+      setPendingSignup({ email, password });
       setShowUsernameStep(true);
       setIsLoading(false);
+      toast.success("Account created! Please choose a username.");
     }
   };
 
@@ -159,16 +170,56 @@ export default function LoginPage() {
       return;
     }
 
-    // Get current user
+    // Get current user (should be logged in from signup)
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
+      // If not logged in, try to auto-login with pending credentials
+      if (pendingSignup) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: pendingSignup.email,
+          password: pendingSignup.password,
+        });
+        
+        if (signInError) {
+          setErrors({ general: "Session expired. Please sign up again." });
+          setIsLoading(false);
+          setShowUsernameStep(false);
+          return;
+        }
+        
+        // Get user after login
+        const { data: { user: loggedInUser } } = await supabase.auth.getUser();
+        if (!loggedInUser) {
+          setErrors({ general: "Login failed. Please try again." });
+          setIsLoading(false);
+          return;
+        }
+        
+        // Create profile with logged in user
+        const { error } = await supabase.from("profiles").insert({
+          id: loggedInUser.id,
+          username,
+        });
+
+        if (error) {
+          console.error("Profile insert error:", error);
+          setErrors({ general: "Failed to create profile. Please try again." });
+          setIsLoading(false);
+          return;
+        }
+
+        toast.success("Welcome to Home!");
+        setShouldRedirect(true);
+        return;
+      }
+      
       setErrors({ general: "User not found. Please try signing up again." });
       setIsLoading(false);
       return;
     }
 
-    // Create profile
+    // Create profile with current user
     const { error } = await supabase.from("profiles").insert({
       id: user.id,
       username,
@@ -181,8 +232,7 @@ export default function LoginPage() {
       return;
     }
 
-    toast.success("Account created successfully!");
-    // Navigate using effect
+    toast.success("Welcome to Home!");
     setShouldRedirect(true);
   };
 
@@ -190,7 +240,8 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="w-full max-w-md">
-          <h1 className="text-3xl font-display text-center mb-8">Choose your username</h1>
+          <h1 className="text-3xl font-display text-center mb-2">Choose your username</h1>
+          <p className="text-center text-slate-500 mb-8">This will be your profile URL: home.app/@{username || 'username'}</p>
           
           <form onSubmit={handleUsernameSubmit} className="space-y-4">
             <div>
@@ -226,6 +277,10 @@ export default function LoginPage() {
               {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
               Create Account
             </button>
+            
+            <p className="text-xs text-slate-400 text-center mt-4">
+              You can verify your email later from your profile settings
+            </p>
           </form>
         </div>
       </div>
