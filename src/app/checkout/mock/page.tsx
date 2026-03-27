@@ -1,12 +1,13 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle, Sparkles, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
-export default function MockCheckoutPage() {
+function MockCheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isActivating, setIsActivating] = useState(false);
@@ -134,5 +135,18 @@ export default function MockCheckoutPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// Wrap with Suspense for useSearchParams
+export default function MockCheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+      </div>
+    }>
+      <MockCheckoutContent />
+    </Suspense>
   );
 }

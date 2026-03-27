@@ -1101,11 +1101,23 @@ function DashboardContent() {
   );
 }
 
-// Wrap with SubscriptionProvider
+// Wrap with SubscriptionProvider and Suspense for useSearchParams
+import { Suspense } from 'react';
+
+function DashboardLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   return (
     <SubscriptionProvider>
-      <DashboardContent />
+      <Suspense fallback={<DashboardLoading />}>
+        <DashboardContent />
+      </Suspense>
     </SubscriptionProvider>
   );
 }
