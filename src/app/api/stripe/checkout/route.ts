@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe, STRIPE_PRICE_ID, BASE_URL } from '@/lib/stripe';
+import { MOCK_STRIPE_ENABLED, createMockCheckoutSession } from '@/lib/stripe-mock';
 import { supabase } from '@/lib/supabase';
 
 // PREMIUM FEATURE: Create Stripe Checkout session
 // Called when user clicks "Upgrade to Premium"
+// MOCK MODE: Set NEXT_PUBLIC_MOCK_STRIPE=true to test without real Stripe
 export async function POST(request: NextRequest) {
   try {
     // Get current user
@@ -13,6 +15,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      );
+    }
+
+    // MOCK MODE: Return mock checkout URL
+    if (MOCK_STRIPE_ENABLED) {
+      console.log('Using MOCK Stripe checkout for user:', user.id);
+      const mockSession = createMockCheckoutSession(user.id);
+      return NextResponse.json({ url: mockSession.url });
+    }
+
+    // REAL STRIPE: Proceed with actual checkout
+    if (!STRIPE_PRICE_ID) {
+      return NextResponse.json(
+        { error: 'Stripe not configured. Set NEXT_PUBLIC_MOCK_STRIPE=true for testing.' },
+        { status: 500 }
       );
     }
 

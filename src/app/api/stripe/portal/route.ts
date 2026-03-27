@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe, BASE_URL } from '@/lib/stripe';
+import { MOCK_STRIPE_ENABLED, createMockPortalSession } from '@/lib/stripe-mock';
 import { supabase } from '@/lib/supabase';
 
 // PREMIUM FEATURE: Create Stripe Customer Portal session
 // Allows users to manage their subscription (cancel, update payment, etc.)
+// MOCK MODE: Set NEXT_PUBLIC_MOCK_STRIPE=true to test without real Stripe
 export async function POST(request: NextRequest) {
   try {
     // Get current user
@@ -14,6 +16,13 @@ export async function POST(request: NextRequest) {
         { error: 'Unauthorized' },
         { status: 401 }
       );
+    }
+
+    // MOCK MODE: Return mock portal URL
+    if (MOCK_STRIPE_ENABLED) {
+      console.log('Using MOCK Stripe portal for user:', user.id);
+      const mockPortal = createMockPortalSession();
+      return NextResponse.json({ url: mockPortal.url });
     }
 
     // Get customer's Stripe ID

@@ -1,13 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { CreditCard, CheckCircle, AlertCircle, XCircle, Calendar, ExternalLink } from 'lucide-react';
+import { CreditCard, CheckCircle, AlertCircle, XCircle, Calendar, ExternalLink, Sparkles, Wrench } from 'lucide-react';
 import { useSubscription } from '@/lib/subscription';
+import { MOCK_STRIPE_ENABLED } from '@/lib/stripe-mock';
 import { PremiumBadge, UpgradeCTA } from './UpgradeCTA';
+import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 // PREMIUM FEATURE: Subscription management panel
 // Shows current plan status and allows managing subscription
+// MOCK MODE: Shows test indicator when NEXT_PUBLIC_MOCK_STRIPE=true
 export function SubscriptionManager() {
   const { subscription, isPremium, refreshSubscription } = useSubscription();
   const [isLoading, setIsLoading] = useState(false);
@@ -35,6 +38,41 @@ export function SubscriptionManager() {
     } catch (error) {
       console.error('Portal error:', error);
       toast.error('Failed to open subscription management');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // MOCK MODE: Handle mock cancellation
+  const handleMockCancel = async () => {
+    if (!confirm('Cancel your Premium subscription? (This is a test)')) return;
+    
+    setIsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Update subscription to canceled status
+      await supabase
+        .from('subscriptions')
+        .update({ 
+          status: 'canceled',
+          plan: 'free',
+          cancel_at_period_end: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id);
+
+      await supabase
+        .from('profiles')
+        .update({ is_premium: false })
+        .eq('id', user.id);
+
+      toast.success('Subscription canceled (mock)');
+      refreshSubscription();
+    } catch (error) {
+      console.error('Error canceling:', error);
+      toast.error('Failed to cancel subscription');
     } finally {
       setIsLoading(false);
     }
@@ -104,6 +142,16 @@ export function SubscriptionManager() {
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-6 border border-emerald-200">
+        {/* MOCK MODE INDICATOR */}
+        {MOCK_STRIPE_ENABLED && (
+          <div className="bg-amber-100 border border-amber-300 rounded-lg px-3 py-2 mb-4 flex items-center gap-2">
+            <Wrench className="w-4 h-4 text-amber-600" />
+            <span className="text-sm font-medium text-amber-800">
+              Mock Mode Active — No real payments processed
+            </span>
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="bg-emerald-500 rounded-full p-2">
@@ -116,6 +164,11 @@ export function SubscriptionManager() {
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
                   {subscription?.status === 'active' ? 'Active' : subscription?.status}
                 </span>
+                {MOCK_STRIPE_ENABLED && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                    TEST
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -151,26 +204,50 @@ export function SubscriptionManager() {
           </div>
         </div>
 
-        <button
-          onClick={handleManageSubscription}
-          disabled={isLoading}
-          className="w-full bg-slate-900 hover:bg-slate-800 text-white px-4 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {isLoading ? (
-            <>
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              Loading...
-            </>
-          ) : (
-            <>
-              <ExternalLink className="w-4 h-4" />
-              Manage Subscription
-            </>
-          )}
-        </button>
+        {/* MOCK MODE: Show cancel button instead of portal */}
+        {MOCK_STRIPE_ENABLED ? (
+          <button
+            onClick={handleMockCancel}
+            disabled={isLoading}
+            className="w-full bg-red-500 hover:bg-red-600 text-white px-4 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Canceling...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                Cancel Subscription (Test)
+              </>
+            )}
+          </button>
+        ) : (
+          <button
+            onClick={handleManageSubscription}
+            disabled={isLoading}
+            className="w-full bg-slate-900 hover:bg-slate-800 text-white px-4 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Loading...
+              </>
+            ) : (
+              <>
+                <ExternalLink className="w-4 h-4" />
+                Manage Subscription
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Premium features list */}
