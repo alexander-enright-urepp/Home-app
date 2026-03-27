@@ -129,7 +129,7 @@ function DashboardContent() {
       // Fetch profile with premium status
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("username, display_name, bio, avatar_url, is_premium, theme_preference")
+        .select("username, display_name, bio, avatar_url, is_premium, theme_preference, custom_colors, custom_font, remove_branding")
         .eq("id", user.id)
         .single();
 
@@ -888,7 +888,7 @@ function DashboardContent() {
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm text-slate-600 mb-1 block">Primary Text</label>
+                    <label className="text-sm text-slate-600 mb-1 block">Profile Title Color</label>
                     <input 
                       type="color" 
                       value={profile?.custom_colors?.primary || '#0f172a'}
@@ -897,16 +897,7 @@ function DashboardContent() {
                     />
                   </div>
                   <div>
-                    <label className="text-sm text-slate-600 mb-1 block">Secondary Text</label>
-                    <input 
-                      type="color" 
-                      value={profile?.custom_colors?.secondary || '#334155'}
-                      onChange={(e) => handleColorChange('secondary', e.target.value)}
-                      className="w-full h-10 rounded-lg cursor-pointer"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-slate-600 mb-1 block">Background</label>
+                    <label className="text-sm text-slate-600 mb-1 block">Background Color</label>
                     <input 
                       type="color" 
                       value={profile?.custom_colors?.background || '#ffffff'}
@@ -915,11 +906,20 @@ function DashboardContent() {
                     />
                   </div>
                   <div>
-                    <label className="text-sm text-slate-600 mb-1 block">Accent</label>
+                    <label className="text-sm text-slate-600 mb-1 block">Link Title Color</label>
                     <input 
                       type="color" 
                       value={profile?.custom_colors?.accent || '#10b981'}
                       onChange={(e) => handleColorChange('accent', e.target.value)}
+                      className="w-full h-10 rounded-lg cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-slate-600 mb-1 block">Link Subtitle Color</label>
+                    <input 
+                      type="color" 
+                      value={profile?.custom_colors?.secondary || '#334155'}
+                      onChange={(e) => handleColorChange('secondary', e.target.value)}
                       className="w-full h-10 rounded-lg cursor-pointer"
                     />
                   </div>

@@ -136,6 +136,23 @@ export default function PublicProfilePage({ params }: PageProps) {
     };
   };
 
+  // PREMIUM FEATURE: Get font family
+  const getFontFamily = () => {
+    if (!profile) return '';
+    
+    const fontMap: Record<string, string> = {
+      'dm-sans': 'var(--font-body), sans-serif',
+      'dm-serif': 'var(--font-display), serif',
+      'inter': 'Inter, sans-serif',
+      'roboto': 'Roboto, sans-serif',
+      'poppins': 'Poppins, sans-serif',
+    };
+    
+    return profile.is_premium && profile.custom_font 
+      ? (fontMap[profile.custom_font] || fontMap['dm-sans'])
+      : fontMap['dm-sans'];
+  };
+
   const getAccentColor = () => {
     if (!profile) return THEMES.default.colors.accent;
     
@@ -221,7 +238,7 @@ export default function PublicProfilePage({ params }: PageProps) {
   return (
     <div 
       className="min-h-screen flex flex-col items-center justify-start pt-12 pb-6 px-4 transition-colors duration-300"
-      style={getThemeStyles()}
+      style={{...getThemeStyles(), fontFamily: getFontFamily()}}
     >
       <div className="w-full max-w-md">
         {/* Profile Header */}
