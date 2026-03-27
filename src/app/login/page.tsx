@@ -235,9 +235,24 @@ export default function LoginPage() {
         return;
       }
 
-      console.log("Creating profile for user:", userId, "with username:", username);
+      console.log("Checking if profile exists for user:", userId);
       
-      // Simple insert - let database handle conflicts
+      // First check if profile already exists (from Supabase trigger)
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", userId)
+        .maybeSingle();
+      
+      if (existingProfile) {
+        // Profile already exists from trigger, just redirect
+        console.log("Profile already exists:", existingProfile);
+        toast.success("Welcome to Home!");
+        setShouldRedirect(true);
+        return;
+      }
+      
+      // Create profile if not exists
       const { error: insertError } = await supabase.from("profiles").insert({
         id: userId,
         username: username,
