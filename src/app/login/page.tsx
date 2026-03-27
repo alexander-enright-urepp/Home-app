@@ -235,37 +235,22 @@ export default function LoginPage() {
         return;
       }
 
-      console.log("Checking if profile exists for user:", userId);
+      console.log("Updating profile for user:", userId, "with username:", username);
       
-      // First check if profile already exists (from Supabase trigger)
-      const { data: existingProfile } = await supabase
+      // Update profile with chosen username (trigger auto-created it with default)
+      const { error: updateError } = await supabase
         .from("profiles")
-        .select("username")
-        .eq("id", userId)
-        .maybeSingle();
-      
-      if (existingProfile) {
-        // Profile already exists from trigger, just redirect
-        console.log("Profile already exists:", existingProfile);
-        toast.success("Welcome to Home!");
-        setShouldRedirect(true);
-        return;
-      }
-      
-      // Create profile if not exists
-      const { error: insertError } = await supabase.from("profiles").insert({
-        id: userId,
-        username: username,
-      });
+        .update({ username: username })
+        .eq("id", userId);
 
-      if (insertError) {
-        console.error("Profile insert error:", insertError);
-        setErrors({ general: "Failed to create profile: " + insertError.message });
+      if (updateError) {
+        console.error("Profile update error:", updateError);
+        setErrors({ general: "Failed to save username: " + updateError.message });
         setIsLoading(false);
         return;
       }
       
-      console.log("Profile created successfully");
+      console.log("Profile updated successfully");
 
       toast.success("Welcome to Home!");
       setShouldRedirect(true);
