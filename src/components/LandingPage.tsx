@@ -8,7 +8,10 @@ import {
   MousePointerClick,
   Sparkles,
   ArrowRight,
-  Check
+  Check,
+  BarChart3,
+  Crown,
+  Palette as PaletteIcon
 } from "lucide-react";
 
 const exampleProfiles = [
@@ -65,6 +68,29 @@ const features = [
   }
 ];
 
+const premiumFeatures = [
+  {
+    icon: Crown,
+    title: "Unlimited Links",
+    description: "Free plan limited to 5 links. Premium gives you unlimited."
+  },
+  {
+    icon: BarChart3,
+    title: "Analytics Dashboard",
+    description: "Track clicks and see which links perform best."
+  },
+  {
+    icon: PaletteIcon,
+    title: "Premium Themes",
+    description: "8 beautiful themes including Ocean, Sunset, Forest, and more."
+  },
+  {
+    icon: Sparkles,
+    title: "Remove Branding",
+    description: "Hide the 'Made with Home' badge on your public page."
+  }
+];
+
 const howItWorks = [
   {
     step: "01",
@@ -91,11 +117,6 @@ export function LandingPage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(22,163,74,0.3),transparent_70%)]" />
         
         <div className="relative max-w-7xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-900/50 border border-green-700/50 mb-8">
-            <Sparkles className="w-4 h-4 text-green-400" />
-            <span className="text-green-200 text-sm font-medium">Free forever. No credit card required.</span>
-          </div>
-
           <h1 className="text-5xl sm:text-7xl font-bold text-white mb-6 leading-tight">
             Your digital home,
             <br />
@@ -212,6 +233,50 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* Premium Features Section */}
+      <section className="px-4 sm:px-6 lg:px-8 py-20 border-t border-green-900/30">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-400/20 to-orange-500/20 border border-amber-400/30 mb-6">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span className="text-amber-300 text-sm font-medium">Premium Features</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+              Unlock more with Premium
+            </h2>
+            <p className="text-green-200/70 text-lg max-w-2xl mx-auto">
+              Upgrade for $5/month and get unlimited links, analytics, premium themes, and more.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {premiumFeatures.map((feature, index) => (
+              <div 
+                key={index}
+                className="p-6 bg-gradient-to-br from-amber-950/20 to-transparent border border-amber-800/20 rounded-2xl hover:border-amber-600/40 transition-all"
+              >
+                <div className="w-10 h-10 bg-gradient-to-br from-amber-400/20 to-orange-500/20 rounded-xl flex items-center justify-center mb-4">
+                  <feature.icon className="w-5 h-5 text-amber-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">{feature.title}</h3>
+                <p className="text-green-200/60 text-sm">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center mt-10">
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-green-950 rounded-xl font-semibold transition-all hover:scale-105"
+            >
+              <Crown className="w-5 h-5" />
+              Upgrade to Premium
+              <ArrowRight className="w-5 h-5" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* How It Works Section */}
       <section className="px-4 sm:px-6 lg:px-8 py-20 border-t border-green-900/30">
         <div className="max-w-7xl mx-auto">
@@ -255,7 +320,7 @@ export function LandingPage() {
             </p>
 
             <div className="flex flex-wrap justify-center gap-4 mb-8">
-              {["Free forever", "No ads", "Custom domains coming soon"].map((item, i) => (
+              {["Free to start", "No ads", "Upgrade anytime"].map((item, i) => (
                 <div key={i} className="flex items-center gap-2 text-green-300">
                   <Check className="w-5 h-5 text-green-400" />
                   <span>{item}</span>

@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle, Sparkles, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { MOCK_STRIPE_ENABLED, mockActivatePremium } from '@/lib/stripe-mock';
 import toast from 'react-hot-toast';
 
 // MOCK CHECKOUT PAGE
@@ -15,47 +14,78 @@ export default function MockCheckoutPage() {
   const searchParams = useSearchParams();
   const [isActivating, setIsActivating] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const userId = searchParams.get('user_id');
 
-  useEffect(() => {
-    const userId = searchParams.get('user_id');
-    
-    if (userId && MOCK_STRIPE_ENABLED) {
-      activatePremium(userId);
+  // Check if mock mode is enabled
+  const isMockMode = process.env.NEXT_PUBLIC_MOCK_STRIPE === 'true';
+
+  const activatePremium = async () => {
+    if (!userId) {
+      toast.error('No user ID found');
+      return;
     }
-  }, [searchParams]);
 
-  const activatePremium = async (userId: string) => {
     setIsActivating(true);
     
     try {
-      // Activate premium in database
-      const result = await mockActivatePremium(userId);
+      // Create mock subscription record directly
+      const { error: subError } = await supabase.from('subscriptions').upsert({
+        user_id: userId,
+        stripe_customer_id: `mock_cust_${userId.slice(0, 8)}`,
+        stripe_subscription_id: `mock_sub_${Date.now()}`,
+        status: 'active',
+        plan: 'premium',
+        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        cancel_at_period_end: false,
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'user_id'
+      });
+
+      if (subError) throw subError;
+
+      // Update profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ is_premium: true })
+        .eq('id', userId);
+
+      if (profileError) throw profileError;
+
+      setIsComplete(true);
+      toast.success('Premium activated!');
       
-      if (result.success) {
-        setIsComplete(true);
-        toast.success('Premium activated!');
-        
-        // Redirect after 2 seconds
-        setTimeout(() => {
-          router.push('/dashboard?checkout=success');
-        }, 2000);
-      }
+      // Redirect after 2 seconds
+      setTimeout(() => {
+        router.push('/dashboard?checkout=success');
+      }, 2000);
     } catch (error) {
       console.error('Error activating premium:', error);
-      toast.error('Failed to activate premium');
+      toast.error('Failed to activate premium: ' + (error as Error).message);
     } finally {
       setIsActivating(false);
     }
   };
 
-  if (!MOCK_STRIPE_ENABLED) {
+  if (!isMockMode) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Mock Mode Disabled</h1>
           <p className="text-slate-600">
-            Set NEXT_PUBLIC_MOCK_STRIPE=true to use mock checkout
+            Set NEXT_PUBLIC_MOCK_STRIPE=true in .env.local to use mock checkout
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">Error</h1>
+          <p className="text-slate-600">No user ID found. Please try again.</p>
         </div>
       </div>
     );
@@ -93,10 +123,7 @@ export default function MockCheckoutPage() {
             </p>
             
             <button
-              onClick={() => {
-                const userId = searchParams.get('user_id');
-                if (userId) activatePremium(userId);
-              }}
+              onClick={activatePremium}
               disabled={isActivating}
               className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white px-6 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
             >
