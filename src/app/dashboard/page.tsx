@@ -345,19 +345,30 @@ function DashboardContent() {
   const handleSaveBio = async () => {
     if (!userId) return;
 
-    // Just update - profile already exists from trigger
-    const { error } = await supabase
+    // Try update first, if fails create profile
+    let { error } = await supabase
       .from("profiles")
       .update({ bio: bioInput })
       .eq("id", userId);
 
     if (error) {
-      console.error("Save bio error:", error);
-      toast.error("Failed to save bio: " + error.message);
-      return;
+      console.log("Update failed, creating profile with bio...");
+      const { error: insertError } = await supabase
+        .from("profiles")
+        .insert({ 
+          id: userId, 
+          bio: bioInput,
+          username: userId.slice(0, 8)
+        });
+      
+      if (insertError) {
+        console.error("Insert failed:", insertError);
+        toast.error("Failed to save bio: " + insertError.message);
+        return;
+      }
     }
 
-    setProfile((prev) => prev ? { ...prev, bio: bioInput } : null);
+    setProfile((prev) => prev ? { ...prev, bio: bioInput } : { id: userId, bio: bioInput } as Profile);
     setIsEditingBio(false);
     toast.success("Bio updated");
   };
@@ -371,18 +382,28 @@ function DashboardContent() {
 
     console.log("Saving display name:", nameInput, "for user:", userId);
 
-    // Update profile - should already exist from trigger
-    const { error } = await supabase
+    // Try update first, if fails create profile
+    let { error } = await supabase
       .from("profiles")
       .update({ display_name: nameInput })
       .eq("id", userId);
 
     if (error) {
-      console.error("Save name error:", error);
-      console.error("Error code:", error.code);
-      console.error("Error message:", error.message);
-      toast.error("Failed to save name: " + error.message);
-      return;
+      console.log("Update failed:", error.code, "- trying insert");
+      // No profile exists, create one
+      const { error: insertError } = await supabase
+        .from("profiles")
+        .insert({ 
+          id: userId, 
+          display_name: nameInput,
+          username: userId.slice(0, 8)
+        });
+      
+      if (insertError) {
+        console.error("Insert failed:", insertError);
+        toast.error("Failed to save name: " + insertError.message);
+        return;
+      }
     }
 
     console.log("Name saved successfully");
