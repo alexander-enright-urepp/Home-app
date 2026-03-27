@@ -1,0 +1,28 @@
+// SIMPLIFIED LOGIN - Just update existing profile
+// Supabase trigger creates profile automatically
+
+const handleUsernameSubmit = async (e) => {
+  e.preventDefault();
+  
+  // Get logged in user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    setErrors({ general: "Not logged in" });
+    return;
+  }
+  
+  // Simple update - trigger already created profile
+  const { error } = await supabase
+    .from("profiles")
+    .update({ username: username })
+    .eq("id", user.id);
+  
+  if (error) {
+    console.error("Update failed:", error);
+    setErrors({ general: "Failed: " + error.message });
+    return;
+  }
+  
+  // Success - go to dashboard
+  router.push("/dashboard");
+};
