@@ -237,13 +237,10 @@ export default function LoginPage() {
 
       console.log("Creating profile for user:", userId, "with username:", username);
       
-      // Create profile - use upsert in case profile already exists
-      const { error: insertError, data: insertData } = await supabase.from("profiles").upsert({
+      // Simple insert - let database handle conflicts
+      const { error: insertError } = await supabase.from("profiles").insert({
         id: userId,
-        username,
-      }, {
-        onConflict: 'id',
-        ignoreDuplicates: false
+        username: username,
       });
 
       if (insertError) {
@@ -253,7 +250,7 @@ export default function LoginPage() {
         return;
       }
       
-      console.log("Profile created successfully:", insertData);
+      console.log("Profile created successfully");
 
       toast.success("Welcome to Home!");
       setShouldRedirect(true);
