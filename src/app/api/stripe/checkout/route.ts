@@ -1,23 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { stripe, STRIPE_PRICE_ID, BASE_URL } from '@/lib/stripe';
 
 // PREMIUM FEATURE: Create Stripe Checkout session
 // Called when user clicks "Upgrade to Premium"
-// MOCK MODE: Set MOCK_STRIPE=true in .env.local to test
 export async function POST(request: NextRequest) {
   try {
     console.log('Checkout API called');
+    
+    // Check MOCK MODE first (before any auth)
+    const isMockMode = process.env.MOCK_STRIPE === 'true' || process.env.NEXT_PUBLIC_MOCK_STRIPE === 'true';
+    console.log('Is mock mode:', isMockMode);
     
     // Create Supabase client for route handler
     const supabase = createRouteHandlerClient({ cookies });
     
     // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     
-    if (authError || !user) {
-      console.error('Auth error:', authError);
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized - Please sign in' },
         { status: 401 }
@@ -25,13 +26,8 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('User authenticated:', user.id);
-    console.log('Env check - MOCK_STRIPE:', process.env.MOCK_STRIPE);
 
-    // MOCK MODE: Check for mock mode
-    const isMockMode = process.env.MOCK_STRIPE === 'true' || process.env.NEXT_PUBLIC_MOCK_STRIPE === 'true';
-    
-    console.log('Is mock mode:', isMockMode);
-    
+    // MOCK MODE: Return mock checkout URL immediately
     if (isMockMode) {
       console.log('MOCK MODE: Redirecting to mock checkout');
       return NextResponse.json({ 
@@ -39,9 +35,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // REAL STRIPE: Check if configured
+    // REAL STRIPE MODE
+    const { stripe, STRIPE_PRICE_ID, BASE_URL } = await import('@/lib/stripe');
+    
     if (!STRIPE_PRICE_ID) {
-      console.error('STRIPE_PRICE_ID not configured');
       return NextResponse.json(
         { error: 'Stripe not configured. Set MOCK_STRIPE=true for testing.' },
         { status: 500 }
@@ -51,11 +48,11 @@ export async function POST(request: NextRequest) {
     // Get user's profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('username, email')
+      .select('username')
       .eq('id', user.id)
       .single();
 
-    // Create or retrieve Stripe customer
+    // Create Stripe customer
     let customerId: string | null = null;
     
     const { data: subscription } = await supabase
@@ -68,7 +65,7 @@ export async function POST(request: NextRequest) {
       customerId = subscription.stripe_customer_id;
     } else {
       const customer = await stripe.customers.create({
-        email: user.email || profile?.email,
+        email: user.email || undefined,
         metadata: {
           user_id: user.id,
           username: profile?.username || '',
@@ -90,7 +87,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: session.url });
     
   } catch (error) {
-    console.error('Error creating checkout session:', error);
+    console.error('Checkout error:', error);
     return NextResponse.json(
       { error: 'Failed to create checkout session', details: (error as Error).message },
       { status: 500 }

@@ -1,17 +1,22 @@
 import Stripe from 'stripe';
 
-// Initialize Stripe with secret key
-// PREMIUM FEATURE: This is used for subscription management
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia', // Use latest API version
-});
+// PREMIUM FEATURE: Stripe configuration
+// Only initialize if not in mock mode and keys are present
+
+const isMockMode = process.env.MOCK_STRIPE === 'true' || process.env.NEXT_PUBLIC_MOCK_STRIPE === 'true';
+
+// Initialize Stripe with secret key (only if not in mock mode)
+export const stripe = isMockMode 
+  ? null as unknown as Stripe // Dummy for mock mode
+  : new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_dummy', {
+      apiVersion: '2024-12-18.acacia',
+    });
 
 // Price ID for the premium plan
-// Set this in your environment variables after creating the product in Stripe Dashboard
-export const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID!;
+export const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID || '';
 
 // Webhook secret for verifying Stripe webhook signatures
-export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET!;
+export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 
 // Base URL for redirects
 export const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
@@ -23,7 +28,6 @@ export const FREE_LINK_LIMIT = 5;
 export const FREE_THEMES = ['default', 'dark'];
 
 // Check if user has active subscription
-// Used throughout the app to gate premium features
 export function isSubscriptionActive(status: string | null): boolean {
   return status === 'active' || status === 'trialing';
 }
