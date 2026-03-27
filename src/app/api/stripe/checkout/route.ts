@@ -1,24 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 // PREMIUM FEATURE: Create Stripe Checkout session
-// Called when user clicks "Upgrade to Premium"
 export async function POST(request: NextRequest) {
   try {
     console.log('Checkout API called');
     
-    // Check MOCK MODE first (before any auth)
-    const isMockMode = process.env.MOCK_STRIPE === 'true' || process.env.NEXT_PUBLIC_MOCK_STRIPE === 'true';
-    console.log('Is mock mode:', isMockMode);
+    // Create Supabase server client with proper cookie handling
+    const cookieStore = cookies();
     
-    // Create Supabase client for route handler
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: any) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: any) {
+            cookieStore.set({ name, value: '', ...options });
+          },
+        },
+      }
+    );
     
     // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (!user) {
+    if (authError || !user) {
+      console.error('Auth error:', authError);
       return NextResponse.json(
         { error: 'Unauthorized - Please sign in' },
         { status: 401 }
@@ -27,7 +41,10 @@ export async function POST(request: NextRequest) {
 
     console.log('User authenticated:', user.id);
 
-    // MOCK MODE: Return mock checkout URL immediately
+    // Check MOCK MODE
+    const isMockMode = process.env.MOCK_STRIPE === 'true' || process.env.NEXT_PUBLIC_MOCK_STRIPE === 'true';
+    console.log('Is mock mode:', isMockMode);
+    
     if (isMockMode) {
       console.log('MOCK MODE: Redirecting to mock checkout');
       return NextResponse.json({ 
@@ -40,43 +57,13 @@ export async function POST(request: NextRequest) {
     
     if (!STRIPE_PRICE_ID) {
       return NextResponse.json(
-        { error: 'Stripe not configured. Set MOCK_STRIPE=true for testing.' },
+        { error: 'Stripe not configured' },
         { status: 500 }
       );
     }
 
-    // Get user's profile
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('username')
-      .eq('id', user.id)
-      .single();
-
-    // Create Stripe customer
-    let customerId: string | null = null;
-    
-    const { data: subscription } = await supabase
-      .from('subscriptions')
-      .select('stripe_customer_id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (subscription?.stripe_customer_id) {
-      customerId = subscription.stripe_customer_id;
-    } else {
-      const customer = await stripe.customers.create({
-        email: user.email || undefined,
-        metadata: {
-          user_id: user.id,
-          username: profile?.username || '',
-        },
-      });
-      customerId = customer.id;
-    }
-
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
-      customer: customerId,
       line_items: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
       mode: 'subscription',
       success_url: `${BASE_URL}/dashboard?checkout=success`,
@@ -89,7 +76,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Checkout error:', error);
     return NextResponse.json(
-      { error: 'Failed to create checkout session', details: (error as Error).message },
+      { error: 'Failed to create checkout session' },
       { status: 500 }
     );
   }
