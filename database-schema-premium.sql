@@ -81,6 +81,16 @@ CREATE POLICY "Users can view own subscription"
     ON subscriptions FOR SELECT 
     USING (auth.uid() = user_id);
 
+-- Users can update their own subscription
+CREATE POLICY "Users can update own subscription" 
+    ON subscriptions FOR UPDATE 
+    USING (auth.uid() = user_id);
+
+-- Users can insert their own subscription  
+CREATE POLICY "Users can insert own subscription" 
+    ON subscriptions FOR INSERT 
+    WITH CHECK (auth.uid() = user_id);
+
 -- Link clicks policies: users can only see their own clicks
 CREATE POLICY "Users can view own link clicks" 
     ON link_clicks FOR SELECT 
