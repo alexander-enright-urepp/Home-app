@@ -4,8 +4,6 @@ import { Sparkles, Lock } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 
-// PREMIUM FEATURE: Upgrade CTA component
-// Shows in free plan where premium features exist
 interface UpgradeCTAProps {
   title?: string;
   description?: string;
@@ -25,32 +23,36 @@ export function UpgradeCTA({
     setIsLoading(true);
     
     try {
+      console.log('Starting checkout...');
       const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
 
+      console.log('Response status:', response.status);
+      
+      const data = await response.json();
+      console.log('Response data:', data);
+
       if (!response.ok) {
-        throw new Error('Failed to create checkout session');
+        throw new Error(data.error || data.details || 'Failed to create checkout session');
       }
 
-      const { url } = await response.json();
-      
-      // Redirect to Stripe Checkout
-      if (url) {
-        window.location.href = url;
-      } else {
+      if (!data.url) {
         throw new Error('No checkout URL returned');
       }
+
+      console.log('Redirecting to:', data.url);
+      window.location.href = data.url;
+      
     } catch (error) {
       console.error('Checkout error:', error);
-      toast.error('Failed to start checkout. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Failed to start checkout');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Size variants
   const sizeClasses = {
     small: 'p-3 text-sm',
     medium: 'p-4',
@@ -118,8 +120,6 @@ export function UpgradeCTA({
   );
 }
 
-// PREMIUM FEATURE: Locked feature placeholder
-// Shows when free user tries to access premium feature
 export function LockedFeature({ feature }: { feature: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
@@ -137,8 +137,6 @@ export function LockedFeature({ feature }: { feature: string }) {
   );
 }
 
-// PREMIUM FEATURE: Premium badge
-// Shows on dashboard when user has active subscription
 export function PremiumBadge() {
   return (
     <span className="inline-flex items-center gap-1 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">
@@ -148,8 +146,6 @@ export function PremiumBadge() {
   );
 }
 
-// PREMIUM FEATURE: Link limit indicator
-// Shows free users how many links they have left
 export function LinkLimitIndicator({ 
   current, 
   max, 

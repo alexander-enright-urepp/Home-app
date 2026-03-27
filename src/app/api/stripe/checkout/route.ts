@@ -7,18 +7,35 @@ import { supabase } from '@/lib/supabase';
 // MOCK MODE: Set MOCK_STRIPE=true (without NEXT_PUBLIC_) in .env.local to test
 export async function POST(request: NextRequest) {
   try {
+    console.log('Checkout API called');
+    
     // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError) {
+      console.error('Auth error:', authError);
+      return NextResponse.json(
+        { error: 'Authentication error' },
+        { status: 401 }
+      );
+    }
     
     if (!user) {
+      console.error('No user found');
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
+    console.log('User authenticated:', user.id);
+    console.log('Env check - MOCK_STRIPE:', process.env.MOCK_STRIPE);
+    console.log('Env check - NEXT_PUBLIC_MOCK_STRIPE:', process.env.NEXT_PUBLIC_MOCK_STRIPE);
+
     // MOCK MODE: Check for mock mode (server-side env var)
     const isMockMode = process.env.MOCK_STRIPE === 'true' || process.env.NEXT_PUBLIC_MOCK_STRIPE === 'true';
+    
+    console.log('Is mock mode:', isMockMode);
     
     if (isMockMode) {
       console.log('MOCK MODE: Creating checkout session for user:', user.id);
@@ -30,6 +47,7 @@ export async function POST(request: NextRequest) {
 
     // REAL STRIPE: Proceed with actual checkout
     if (!STRIPE_PRICE_ID) {
+      console.error('STRIPE_PRICE_ID not configured');
       return NextResponse.json(
         { error: 'Stripe not configured. Set MOCK_STRIPE=true for testing.' },
         { status: 500 }
@@ -93,7 +111,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating checkout session:', error);
     return NextResponse.json(
-      { error: 'Failed to create checkout session' },
+      { error: 'Failed to create checkout session', details: (error as Error).message },
       { status: 500 }
     );
   }
