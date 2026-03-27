@@ -18,7 +18,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Plus, ExternalLink, LogOut, User, BarChart3, Palette, CreditCard, CheckCircle } from "lucide-react";
+import { Plus, ExternalLink, LogOut, User, BarChart3, Palette, CreditCard, CheckCircle, Copy, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSubscription, SubscriptionProvider } from "@/lib/subscription";
 import { LinkRow } from "@/components/LinkRow";
@@ -321,6 +321,22 @@ function DashboardContent() {
     setProfile((prev) => prev ? { ...prev, theme_preference: themeId } : null);
   };
 
+  // Copy public profile link to clipboard
+  const [copied, setCopied] = useState(false);
+  const copyProfileLink = async () => {
+    if (!profile?.username) return;
+    
+    const profileUrl = `${window.location.origin}/${profile.username}`;
+    try {
+      await navigator.clipboard.writeText(profileUrl);
+      setCopied(true);
+      toast.success('Profile link copied!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      toast.error('Failed to copy link');
+    }
+  };
+
   const openAddModal = () => {
     // PREMIUM GATE: Check before opening modal
     if (!canAddLink) {
@@ -385,10 +401,30 @@ function DashboardContent() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <h1 className="text-2xl font-display">Home</h1>
               {profile && (
-                <span className="text-slate-500">@{profile.username}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400">|</span>
+                  <Link
+                    href={`/${profile.username}`}
+                    target="_blank"
+                    className="text-slate-600 hover:text-emerald-600 transition-colors"
+                  >
+                    @{profile.username}
+                  </Link>
+                  <button
+                    onClick={copyProfileLink}
+                    className="p-1.5 rounded-md hover:bg-slate-100 transition-colors"
+                    title="Copy profile link"
+                  >
+                    {copied ? (
+                      <Check className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <Copy className="w-4 h-4 text-slate-400" />
+                    )}
+                  </button>
+                </div>
               )}
               {isPremium && <PremiumBadge />}
             </div>
