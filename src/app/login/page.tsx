@@ -161,16 +161,12 @@ export default function LoginPage() {
 
     setIsLoading(true);
     
-    // Sign up WITHOUT email confirmation required
+    // Sign up - don't set emailRedirectTo so user stays on this page
+    // They need to create username before going to dashboard
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: {
-          email_confirmed: true // Auto-confirm for better UX
-        }
-      }
+      // No emailRedirectTo - we handle redirect manually after username creation
     });
 
     if (error) {
@@ -180,6 +176,10 @@ export default function LoginPage() {
     }
 
     if (data.user) {
+      console.log("Signup successful, user created:", data.user.id);
+      console.log("User email:", data.user.email);
+      console.log("Email confirmed:", data.user.email_confirmed_at);
+      
       // Store email/password temporarily for auto-login after username creation
       setPendingSignup({ email, password });
       setShowUsernameStep(true);
@@ -188,6 +188,10 @@ export default function LoginPage() {
       
       // Prevent auto-redirect by not setting shouldRedirect here
       // User must create username first
+    } else {
+      console.error("No user data after signup");
+      setErrors({ general: "Signup failed - no user created" });
+      setIsLoading(false);
     }
   };
 
@@ -259,12 +263,17 @@ export default function LoginPage() {
         return;
       }
 
-      console.log("Creating profile for user:", userId);
+      console.log("Creating profile for user:", userId, "with username:", username);
       
-      // Create profile
-      const { error: insertError } = await supabase.from("profiles").insert({
+      // Create profile - use upsert in case profile already exists
+      const { error: insertError, data: insertData } = await supabase.from("profiles").upsert({
         id: userId,
         username,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'id',
+        ignoreDuplicates: false
       });
 
       if (insertError) {
@@ -273,6 +282,8 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
       }
+      
+      console.log("Profile created successfully:", insertData);
 
       toast.success("Welcome to Home!");
       setShouldRedirect(true);
