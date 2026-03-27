@@ -237,17 +237,26 @@ export default function LoginPage() {
 
       console.log("Updating profile for user:", userId, "with username:", username);
       
-      // Update profile with chosen username (trigger auto-created it with default)
-      const { error: updateError } = await supabase
+      // Try to update profile first (trigger may have created it)
+      let { error: updateError } = await supabase
         .from("profiles")
         .update({ username: username })
         .eq("id", userId);
 
       if (updateError) {
-        console.error("Profile update error:", updateError);
-        setErrors({ general: "Failed to save username: " + updateError.message });
-        setIsLoading(false);
-        return;
+        console.log("Update failed, trying insert...", updateError);
+        // Profile doesn't exist, create it
+        const { error: insertError } = await supabase.from("profiles").insert({
+          id: userId,
+          username: username,
+        });
+        
+        if (insertError) {
+          console.error("Profile insert error:", insertError);
+          setErrors({ general: "Failed to save username: " + insertError.message });
+          setIsLoading(false);
+          return;
+        }
       }
       
       console.log("Profile updated successfully");

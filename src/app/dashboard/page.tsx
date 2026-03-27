@@ -327,13 +327,33 @@ function DashboardContent() {
   const handleSaveBio = async () => {
     if (!userId) return;
 
-    const { error } = await supabase
+    // First check if profile exists
+    const { data: existingProfile } = await supabase
       .from("profiles")
-      .update({ bio: bioInput })
-      .eq("id", userId);
+      .select("id")
+      .eq("id", userId)
+      .single();
+
+    let error;
+    if (!existingProfile) {
+      // Create profile if doesn't exist
+      const { error: insertError } = await supabase.from("profiles").insert({
+        id: userId,
+        bio: bioInput,
+      });
+      error = insertError;
+    } else {
+      // Update existing profile
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ bio: bioInput })
+        .eq("id", userId);
+      error = updateError;
+    }
 
     if (error) {
-      toast.error("Failed to save bio");
+      console.error("Save bio error:", error);
+      toast.error("Failed to save bio: " + error.message);
       return;
     }
 
