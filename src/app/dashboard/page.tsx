@@ -440,9 +440,13 @@ function DashboardContent() {
   const handleThemeChange = async (themeId: string) => {
     if (!userId) return;
     
+    // Clear custom colors when selecting a theme (use theme colors instead)
     const { error } = await supabase
       .from("profiles")
-      .update({ theme_preference: themeId })
+      .update({ 
+        theme_preference: themeId,
+        custom_colors: null // Reset to use theme colors
+      })
       .eq("id", userId);
     
     if (error) {
@@ -450,7 +454,7 @@ function DashboardContent() {
       return;
     }
     
-    setProfile((prev) => prev ? { ...prev, theme_preference: themeId } : null);
+    setProfile((prev) => prev ? { ...prev, theme_preference: themeId, custom_colors: null } : null);
     toast.success("Theme updated!");
   };
 

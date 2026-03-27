@@ -95,10 +95,13 @@ export function ThemeSelector({ currentTheme, onThemeChange }: ThemeSelectorProp
     setIsUpdating(true);
     
     try {
-      // Update theme in database
+      // Update theme in database AND clear custom colors (use theme colors)
       const { error } = await supabase
         .from('profiles')
-        .update({ theme_preference: themeId })
+        .update({ 
+          theme_preference: themeId,
+          custom_colors: null // Clear custom colors to use theme colors
+        })
         .eq('id', (await supabase.auth.getUser()).data.user?.id);
 
       if (error) throw error;
