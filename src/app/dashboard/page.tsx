@@ -129,11 +129,36 @@ function DashboardContent() {
       setUserId(user.id);
 
       // Fetch profile with premium status
-      const { data: profileData } = await supabase
+      let { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("username, display_name, bio, avatar_url, is_premium, theme_preference, custom_colors, custom_font, remove_branding")
         .eq("id", user.id)
         .single();
+
+      // If profile doesn't exist, create it immediately
+      if (profileError && profileError.code === 'PGRST116') {
+        console.log("Profile not found, creating...");
+        // Get user email to create default username
+        const defaultUsername = user.email?.split('@')[0] || 'user';
+        
+        const { data: newProfile, error: createError } = await supabase
+          .from("profiles")
+          .insert({
+            id: user.id,
+            username: defaultUsername + Date.now().toString().slice(-4), // Make unique
+            display_name: '',
+            bio: '',
+          })
+          .select()
+          .single();
+        
+        if (createError) {
+          console.error("Failed to create profile:", createError);
+        } else {
+          profileData = newProfile;
+          console.log("Profile created:", newProfile);
+        }
+      }
 
       if (profileData) {
         setProfile(profileData);
@@ -366,13 +391,33 @@ function DashboardContent() {
   const handleSaveName = async () => {
     if (!userId) return;
 
-    const { error } = await supabase
+    // First check if profile exists
+    const { data: existingProfile } = await supabase
       .from("profiles")
-      .update({ display_name: nameInput })
-      .eq("id", userId);
+      .select("id")
+      .eq("id", userId)
+      .single();
+
+    let error;
+    if (!existingProfile) {
+      // Create profile if doesn't exist
+      const { error: insertError } = await supabase.from("profiles").insert({
+        id: userId,
+        display_name: nameInput,
+      });
+      error = insertError;
+    } else {
+      // Update existing profile
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ display_name: nameInput })
+        .eq("id", userId);
+      error = updateError;
+    }
 
     if (error) {
-      toast.error("Failed to save name");
+      console.error("Save name error:", error);
+      toast.error("Failed to save name: " + error.message);
       return;
     }
 
