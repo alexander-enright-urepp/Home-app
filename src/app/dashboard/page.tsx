@@ -135,39 +135,22 @@ function DashboardContent() {
         .eq("id", user.id)
         .single();
 
-      // If profile doesn't exist, create it immediately
+      // If profile doesn't exist, log warning
       if (profileError && profileError.code === 'PGRST116') {
-        console.log("Profile not found, creating...");
-        console.log("Current user ID:", user.id);
-        console.log("Current user email:", user.email);
-        
-        // Get user email to create default username
-        const defaultUsername = user.email?.split('@')[0] || 'user';
-        const uniqueUsername = defaultUsername + Date.now().toString().slice(-4);
-        
-        console.log("Creating profile with username:", uniqueUsername);
-        
-        // Profile already exists from trigger, just update username
-        const { data: newProfile, error: createError } = await supabase
-          .from("profiles")
-          .update({
-            username: uniqueUsername,
-          })
-          .eq('id', user.id)
-          .select()
-          .single();
-        
-        if (createError) {
-          console.error("Failed to create profile:", createError);
-          console.error("Error code:", createError.code);
-          console.error("Error message:", createError.message);
-          console.error("Error details:", createError.details);
-          // Don't fail - user can still use dashboard without profile
-          console.log("Continuing without profile creation");
-        } else {
-          profileData = newProfile;
-          console.log("Profile created successfully:", newProfile);
-        }
+        console.warn("Profile not found for user:", user.id);
+        // Set empty profile to avoid crashes
+        profileData = {
+          id: user.id,
+          username: '',
+          display_name: '',
+          bio: '',
+          avatar_url: null,
+          is_premium: false,
+          theme_preference: 'default',
+          custom_colors: null,
+          custom_font: 'dm-sans',
+          remove_branding: false,
+        };
       }
 
       if (profileData) {

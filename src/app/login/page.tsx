@@ -244,7 +244,8 @@ export default function LoginPage() {
         .eq("id", userId);
 
       if (updateError) {
-        console.log("Update failed, trying insert...", updateError);
+        console.log("Update failed:", updateError.code, updateError.message);
+        console.log("Trying insert...");
         // Profile doesn't exist, create it
         const { error: insertError } = await supabase.from("profiles").insert({
           id: userId,
@@ -252,8 +253,9 @@ export default function LoginPage() {
         });
         
         if (insertError) {
-          console.error("Profile insert error:", insertError);
-          setErrors({ general: "Failed to save username: " + insertError.message });
+          console.error("Profile insert error:", insertError.code, insertError.message);
+          console.error("Full error:", insertError);
+          setErrors({ general: "Failed to save username: " + insertError.message + " (code: " + insertError.code + ")" });
           setIsLoading(false);
           return;
         }
