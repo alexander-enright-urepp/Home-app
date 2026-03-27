@@ -70,6 +70,8 @@ function DashboardContent() {
   const [userId, setUserId] = useState<string | null>(null);
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bioInput, setBioInput] = useState("");
+  const [nameInput, setNameInput] = useState("");
+  const [isEditingName, setIsEditingName] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('links');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
@@ -136,6 +138,7 @@ function DashboardContent() {
       if (profileData) {
         setProfile(profileData);
         setBioInput(profileData.bio || "");
+        setNameInput(profileData.display_name || "");
       }
 
       // Fetch links
@@ -337,6 +340,25 @@ function DashboardContent() {
     setProfile((prev) => prev ? { ...prev, bio: bioInput } : null);
     setIsEditingBio(false);
     toast.success("Bio updated");
+  };
+
+  // Save Display Name
+  const handleSaveName = async () => {
+    if (!userId) return;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ display_name: nameInput })
+      .eq("id", userId);
+
+    if (error) {
+      toast.error("Failed to save name");
+      return;
+    }
+
+    setProfile((prev) => prev ? { ...prev, display_name: nameInput } : null);
+    setIsEditingName(false);
+    toast.success("Name updated");
   };
 
   // Profile Picture Upload
@@ -712,6 +734,63 @@ function DashboardContent() {
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* Name Section */}
+            <div className="bg-white rounded-xl p-6 border border-slate-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <User className="w-5 h-5 text-slate-400" />
+                  <h2 className="font-medium">Display Name</h2>
+                </div>
+                {!isEditingName ? (
+                  <button
+                    onClick={() => setIsEditingName(true)}
+                    className="text-sm text-emerald-600 hover:underline"
+                  >
+                    Edit
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setIsEditingName(false);
+                        setNameInput(profile?.display_name || "");
+                      }}
+                      className="text-sm text-slate-500 hover:text-slate-700"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveName}
+                      className="text-sm text-emerald-600 hover:underline"
+                    >
+                      Save
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {isEditingName ? (
+                <input
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  placeholder="Your display name..."
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  maxLength={50}
+                />
+              ) : (
+                <p className="text-slate-600">
+                  {profile?.display_name || "No name set. Click Edit to add one."}
+                </p>
+              )}
+              
+              {isEditingName && (
+                <p className="text-xs text-slate-500 mt-2">
+                  {nameInput.length}/50 characters
+                </p>
+              )}
             </div>
 
             {/* Bio Section */}
