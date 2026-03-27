@@ -241,8 +241,6 @@ export default function LoginPage() {
       const { error: insertError, data: insertData } = await supabase.from("profiles").upsert({
         id: userId,
         username,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       }, {
         onConflict: 'id',
         ignoreDuplicates: false
