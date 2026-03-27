@@ -18,7 +18,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Plus, ExternalLink, LogOut, User, BarChart3, Palette, CreditCard, CheckCircle, Copy, Check } from "lucide-react";
+import { Plus, ExternalLink, LogOut, User, BarChart3, Palette, CreditCard, CheckCircle, Copy, Check, Camera, Upload, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSubscription, SubscriptionProvider } from "@/lib/subscription";
 import { LinkRow } from "@/components/LinkRow";
@@ -45,6 +45,7 @@ interface Profile {
   username: string;
   display_name: string | null;
   bio: string | null;
+  avatar_url: string | null;
   is_premium: boolean;
   theme_preference: string;
 }
@@ -70,6 +71,7 @@ function DashboardContent() {
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bioInput, setBioInput] = useState("");
   const [activeTab, setActiveTab] = useState<Tab>('links');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
 
   // Check for checkout success/canceled params
@@ -127,7 +129,7 @@ function DashboardContent() {
       // Fetch profile with premium status
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("username, display_name, bio, is_premium, theme_preference")
+        .select("username, display_name, bio, avatar_url, is_premium, theme_preference")
         .eq("id", user.id)
         .single();
 
@@ -337,6 +339,82 @@ function DashboardContent() {
     toast.success("Bio updated");
   };
 
+  // Profile Picture Upload
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+
+    // Validate file
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('File too large. Max 2MB');
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
+      toast.error('Invalid file type. Use JPG, PNG, or GIF');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    
+    try {
+      // Upload to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Update profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', userId);
+
+      if (updateError) throw updateError;
+
+      setProfile((prev) => prev ? { ...prev, avatar_url: publicUrl } : null);
+      toast.success('Profile picture updated!');
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload image');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!userId || !profile?.avatar_url) return;
+
+    setUploadingAvatar(true);
+    
+    try {
+      // Update profile to remove avatar
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: null })
+        .eq('id', userId);
+
+      if (updateError) throw updateError;
+
+      setProfile((prev) => prev ? { ...prev, avatar_url: null } : null);
+      toast.success('Profile picture removed');
+    } catch (error) {
+      console.error('Remove error:', error);
+      toast.error('Failed to remove image');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const handleThemeChange = (themeId: string) => {
     setProfile((prev) => prev ? { ...prev, theme_preference: themeId } : null);
   };
@@ -506,6 +584,63 @@ function DashboardContent() {
         {/* Links Tab */}
         {activeTab === 'links' && (
           <div className="space-y-8">
+            {/* Profile Picture Section */}
+            <div className="bg-white rounded-xl p-6 border border-slate-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Camera className="w-5 h-5 text-slate-400" />
+                  <h2 className="font-medium">Profile Picture</h2>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-6">
+                {/* Avatar Display */}
+                <div className="relative">
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt="Profile"
+                      className="w-24 h-24 rounded-full object-cover border-2 border-slate-200"
+                    />
+                  ) : (
+                    <div className="w-24 h-24 rounded-full bg-slate-100 flex items-center justify-center border-2 border-slate-200">
+                      <User className="w-10 h-10 text-slate-400" />
+                    </div>
+                  )}
+                </div>
+                
+                {/* Upload Button */}
+                <div className="flex flex-col gap-2">
+                  <label className={`inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium transition-colors cursor-pointer ${uploadingAvatar ? 'opacity-50' : ''}`}>
+                    <Upload className="w-4 h-4" />
+                    {uploadingAvatar ? 'Uploading...' : 'Upload Photo'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarUpload}
+                      disabled={uploadingAvatar}
+                    />
+                  </label>
+                  
+                  {profile?.avatar_url && (
+                    <button
+                      onClick={handleRemoveAvatar}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg font-medium transition-colors"
+                      disabled={uploadingAvatar}
+                    >
+                      <X className="w-4 h-4" />
+                      Remove
+                    </button>
+                  )}
+                  
+                  <p className="text-sm text-slate-500">
+                    Recommended: 400x400px, JPG or PNG
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Bio Section */}
             <div className="bg-white rounded-xl p-6 border border-slate-200">
               <div className="flex items-center justify-between mb-3">
