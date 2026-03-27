@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe, BASE_URL } from '@/lib/stripe';
-import { MOCK_STRIPE_ENABLED, createMockPortalSession } from '@/lib/stripe-mock';
 import { supabase } from '@/lib/supabase';
 
 // PREMIUM FEATURE: Create Stripe Customer Portal session
 // Allows users to manage their subscription (cancel, update payment, etc.)
-// MOCK MODE: Set NEXT_PUBLIC_MOCK_STRIPE=true to test without real Stripe
+// MOCK MODE: Set MOCK_STRIPE=true in .env.local to test
 export async function POST(request: NextRequest) {
   try {
     // Get current user
@@ -18,11 +17,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // MOCK MODE: Return mock portal URL
-    if (MOCK_STRIPE_ENABLED) {
-      console.log('Using MOCK Stripe portal for user:', user.id);
-      const mockPortal = createMockPortalSession();
-      return NextResponse.json({ url: mockPortal.url });
+    // MOCK MODE: Check for mock mode
+    const isMockMode = process.env.MOCK_STRIPE === 'true' || process.env.NEXT_PUBLIC_MOCK_STRIPE === 'true';
+    
+    if (isMockMode) {
+      console.log('MOCK MODE: Opening portal for user:', user.id);
+      // Redirect to dashboard with mock flag
+      return NextResponse.json({ 
+        url: '/dashboard?tab=subscription&mock=cancel' 
+      });
     }
 
     // Get customer's Stripe ID

@@ -1,19 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CreditCard, CheckCircle, AlertCircle, XCircle, Calendar, ExternalLink, Sparkles, Wrench } from 'lucide-react';
 import { useSubscription } from '@/lib/subscription';
-import { MOCK_STRIPE_ENABLED } from '@/lib/stripe-mock';
 import { PremiumBadge, UpgradeCTA } from './UpgradeCTA';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 // PREMIUM FEATURE: Subscription management panel
 // Shows current plan status and allows managing subscription
-// MOCK MODE: Shows test indicator when NEXT_PUBLIC_MOCK_STRIPE=true
+// MOCK MODE: Shows test indicator when MOCK_STRIPE=true
 export function SubscriptionManager() {
   const { subscription, isPremium, refreshSubscription } = useSubscription();
   const [isLoading, setIsLoading] = useState(false);
+  const [isMockMode, setIsMockMode] = useState(false);
+
+  // Check if mock mode is enabled (client-side)
+  useEffect(() => {
+    setIsMockMode(process.env.NEXT_PUBLIC_MOCK_STRIPE === 'true');
+  }, []);
 
   const handleManageSubscription = async () => {
     setIsLoading(true);
@@ -143,7 +148,7 @@ export function SubscriptionManager() {
     <div className="space-y-6">
       <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-6 border border-emerald-200">
         {/* MOCK MODE INDICATOR */}
-        {MOCK_STRIPE_ENABLED && (
+        {isMockMode && (
           <div className="bg-amber-100 border border-amber-300 rounded-lg px-3 py-2 mb-4 flex items-center gap-2">
             <Wrench className="w-4 h-4 text-amber-600" />
             <span className="text-sm font-medium text-amber-800">
@@ -164,7 +169,7 @@ export function SubscriptionManager() {
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
                   {subscription?.status === 'active' ? 'Active' : subscription?.status}
                 </span>
-                {MOCK_STRIPE_ENABLED && (
+                {isMockMode && (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                     TEST
                   </span>
@@ -205,7 +210,7 @@ export function SubscriptionManager() {
         </div>
 
         {/* MOCK MODE: Show cancel button instead of portal */}
-        {MOCK_STRIPE_ENABLED ? (
+        {isMockMode ? (
           <button
             onClick={handleMockCancel}
             disabled={isLoading}

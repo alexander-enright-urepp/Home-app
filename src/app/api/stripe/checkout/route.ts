@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe, STRIPE_PRICE_ID, BASE_URL } from '@/lib/stripe';
-import { MOCK_STRIPE_ENABLED, createMockCheckoutSession } from '@/lib/stripe-mock';
 import { supabase } from '@/lib/supabase';
 
 // PREMIUM FEATURE: Create Stripe Checkout session
 // Called when user clicks "Upgrade to Premium"
-// MOCK MODE: Set NEXT_PUBLIC_MOCK_STRIPE=true to test without real Stripe
+// MOCK MODE: Set MOCK_STRIPE=true (without NEXT_PUBLIC_) in .env.local to test
 export async function POST(request: NextRequest) {
   try {
     // Get current user
@@ -18,17 +17,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // MOCK MODE: Return mock checkout URL
-    if (MOCK_STRIPE_ENABLED) {
-      console.log('Using MOCK Stripe checkout for user:', user.id);
-      const mockSession = createMockCheckoutSession(user.id);
-      return NextResponse.json({ url: mockSession.url });
+    // MOCK MODE: Check for mock mode (server-side env var)
+    const isMockMode = process.env.MOCK_STRIPE === 'true' || process.env.NEXT_PUBLIC_MOCK_STRIPE === 'true';
+    
+    if (isMockMode) {
+      console.log('MOCK MODE: Creating checkout session for user:', user.id);
+      // Redirect to mock checkout page
+      return NextResponse.json({ 
+        url: `/checkout/mock?user_id=${user.id}` 
+      });
     }
 
     // REAL STRIPE: Proceed with actual checkout
     if (!STRIPE_PRICE_ID) {
       return NextResponse.json(
-        { error: 'Stripe not configured. Set NEXT_PUBLIC_MOCK_STRIPE=true for testing.' },
+        { error: 'Stripe not configured. Set MOCK_STRIPE=true for testing.' },
         { status: 500 }
       );
     }

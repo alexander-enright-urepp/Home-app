@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe, STRIPE_WEBHOOK_SECRET } from '@/lib/stripe';
-import { MOCK_STRIPE_ENABLED } from '@/lib/stripe-mock';
 import { supabase } from '@/lib/supabase';
 
 // PREMIUM FEATURE: Stripe webhook handler
 // Receives events from Stripe when subscription status changes
-// MOCK MODE: Set NEXT_PUBLIC_MOCK_STRIPE=true to skip webhook verification
+// MOCK MODE: Set MOCK_STRIPE=true to skip webhook processing
 export async function POST(request: NextRequest) {
   // MOCK MODE: Skip webhook processing entirely
-  if (MOCK_STRIPE_ENABLED) {
-    console.log('MOCK MODE: Webhook received but not processed (using direct activation instead)');
+  const isMockMode = process.env.MOCK_STRIPE === 'true' || process.env.NEXT_PUBLIC_MOCK_STRIPE === 'true';
+  
+  if (isMockMode) {
+    console.log('MOCK MODE: Webhook received but skipped');
     return NextResponse.json({ received: true, mock: true });
   }
 
