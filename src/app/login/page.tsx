@@ -20,34 +20,6 @@ export default function LoginPage() {
   const [shouldRedirect, setShouldRedirect] = useState(false);
   const [pendingSignup, setPendingSignup] = useState<{ email: string; password: string } | null>(null);
 
-  // Check if user is already logged in but needs a username
-  useEffect(() => {
-    const checkExistingSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        // Check if user has a profile
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("username")
-          .eq("id", session.user.id)
-          .single();
-        
-        if (!profile) {
-          // Logged in but no profile - show username step
-          console.log("User logged in but no profile, showing username step");
-          setShowUsernameStep(true);
-        } else {
-          // Has profile - redirect to dashboard
-          console.log("User has profile, redirecting to dashboard");
-          window.location.href = "/dashboard";
-        }
-      }
-    };
-    
-    checkExistingSession();
-  }, []);
-
   useEffect(() => {
     if (shouldRedirect) {
       console.log("Effect triggered, navigating to dashboard");
