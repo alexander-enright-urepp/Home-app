@@ -149,11 +149,13 @@ function DashboardContent() {
         
         const { data: newProfile, error: createError } = await supabase
           .from("profiles")
-          .insert({
+          .upsert({
             id: user.id,
             username: uniqueUsername,
             display_name: '',
             bio: '',
+          }, {
+            onConflict: 'id'
           })
           .select()
           .single();
@@ -361,29 +363,15 @@ function DashboardContent() {
   const handleSaveBio = async () => {
     if (!userId) return;
 
-    // First check if profile exists
-    const { data: existingProfile } = await supabase
+    // Use upsert - works whether profile exists or not
+    const { error } = await supabase
       .from("profiles")
-      .select("id")
-      .eq("id", userId)
-      .single();
-
-    let error;
-    if (!existingProfile) {
-      // Create profile if doesn't exist
-      const { error: insertError } = await supabase.from("profiles").insert({
+      .upsert({
         id: userId,
         bio: bioInput,
+      }, {
+        onConflict: 'id'
       });
-      error = insertError;
-    } else {
-      // Update existing profile
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ bio: bioInput })
-        .eq("id", userId);
-      error = updateError;
-    }
 
     if (error) {
       console.error("Save bio error:", error);
@@ -405,33 +393,15 @@ function DashboardContent() {
 
     console.log("Saving display name:", nameInput, "for user:", userId);
 
-    // First check if profile exists
-    const { data: existingProfile, error: checkError } = await supabase
+    // Use upsert - works whether profile exists or not
+    const { error } = await supabase
       .from("profiles")
-      .select("id")
-      .eq("id", userId)
-      .single();
-
-    console.log("Existing profile check:", existingProfile, "error:", checkError);
-
-    let error;
-    if (!existingProfile) {
-      console.log("Profile not found, creating new with display_name");
-      // Create profile if doesn't exist
-      const { error: insertError } = await supabase.from("profiles").insert({
+      .upsert({
         id: userId,
         display_name: nameInput,
+      }, {
+        onConflict: 'id'
       });
-      error = insertError;
-    } else {
-      console.log("Profile found, updating display_name");
-      // Update existing profile
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ display_name: nameInput })
-        .eq("id", userId);
-      error = updateError;
-    }
 
     if (error) {
       console.error("Save name error:", error);
