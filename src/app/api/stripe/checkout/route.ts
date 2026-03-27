@@ -1,44 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
 // PREMIUM FEATURE: Create Stripe Checkout session
 export async function POST(request: NextRequest) {
   try {
     console.log('Checkout API called');
     
-    // Create Supabase server client with cookies from request
+    // Get request body to check for userId (fallback for cookie auth issues)
+    let userId: string | null = null;
+    
+    try {
+      const body = await request.json();
+      userId = body.userId;
+      console.log('Got userId from body:', userId);
+    } catch (e) {
+      console.log('No body in request');
+    }
+    
+    // Try to get user from cookies as well
+    const cookieStore = cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           get(name: string) {
-            const cookie = request.cookies.get(name);
-            console.log('Getting cookie:', name, 'value:', cookie ? 'exists' : 'missing');
-            return cookie?.value;
+            return cookieStore.get(name)?.value;
           },
-          set(name: string, value: string, options: any) {
-            // Not needed for read-only
-          },
-          remove(name: string, options: any) {
-            // Not needed for read-only
-          },
+          set(name: string, value: string, options: any) {},
+          remove(name: string, options: any) {},
         },
       }
     );
     
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     
-    if (authError || !user) {
-      console.error('Auth error:', authError);
+    // Use user from cookie if available, otherwise use body userId
+    const finalUserId = user?.id || userId;
+    
+    if (!finalUserId) {
+      console.error('No user found in cookies or body');
       return NextResponse.json(
         { error: 'Unauthorized - Please sign in' },
         { status: 401 }
       );
     }
 
-    console.log('User authenticated:', user.id);
+    console.log('User authenticated:', finalUserId);
 
     // Check MOCK MODE
     const isMockMode = process.env.MOCK_STRIPE === 'true' || process.env.NEXT_PUBLIC_MOCK_STRIPE === 'true';
@@ -47,7 +56,7 @@ export async function POST(request: NextRequest) {
     if (isMockMode) {
       console.log('MOCK MODE: Redirecting to mock checkout');
       return NextResponse.json({ 
-        url: `/checkout/mock?user_id=${user.id}` 
+        url: `/checkout/mock?user_id=${finalUserId}` 
       });
     }
 
@@ -67,7 +76,7 @@ export async function POST(request: NextRequest) {
       mode: 'subscription',
       success_url: `${BASE_URL}/dashboard?checkout=success`,
       cancel_url: `${BASE_URL}/dashboard?checkout=canceled`,
-      metadata: { user_id: user.id },
+      metadata: { user_id: finalUserId },
     });
 
     return NextResponse.json({ url: session.url });

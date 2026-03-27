@@ -2,6 +2,7 @@
 
 import { Sparkles, Lock } from 'lucide-react';
 import { useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 interface UpgradeCTAProps {
@@ -23,11 +24,20 @@ export function UpgradeCTA({
     setIsLoading(true);
     
     try {
-      console.log('Starting checkout...');
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast.error('Please sign in first');
+        return;
+      }
+
+      console.log('Starting checkout for user:', user.id);
+      
       const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // IMPORTANT: Include cookies for auth
+        body: JSON.stringify({ userId: user.id }),
       });
 
       console.log('Response status:', response.status);
