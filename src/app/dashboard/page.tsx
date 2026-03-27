@@ -138,14 +138,20 @@ function DashboardContent() {
       // If profile doesn't exist, create it immediately
       if (profileError && profileError.code === 'PGRST116') {
         console.log("Profile not found, creating...");
+        console.log("Current user ID:", user.id);
+        console.log("Current user email:", user.email);
+        
         // Get user email to create default username
         const defaultUsername = user.email?.split('@')[0] || 'user';
+        const uniqueUsername = defaultUsername + Date.now().toString().slice(-4);
+        
+        console.log("Creating profile with username:", uniqueUsername);
         
         const { data: newProfile, error: createError } = await supabase
           .from("profiles")
           .insert({
             id: user.id,
-            username: defaultUsername + Date.now().toString().slice(-4), // Make unique
+            username: uniqueUsername,
             display_name: '',
             bio: '',
           })
@@ -154,9 +160,12 @@ function DashboardContent() {
         
         if (createError) {
           console.error("Failed to create profile:", createError);
+          console.error("Error code:", createError.code);
+          console.error("Error message:", createError.message);
+          console.error("Error details:", createError.details);
         } else {
           profileData = newProfile;
-          console.log("Profile created:", newProfile);
+          console.log("Profile created successfully:", newProfile);
         }
       }
 
@@ -389,17 +398,25 @@ function DashboardContent() {
 
   // Save Display Name
   const handleSaveName = async () => {
-    if (!userId) return;
+    if (!userId) {
+      console.error("No userId available");
+      return;
+    }
+
+    console.log("Saving display name:", nameInput, "for user:", userId);
 
     // First check if profile exists
-    const { data: existingProfile } = await supabase
+    const { data: existingProfile, error: checkError } = await supabase
       .from("profiles")
       .select("id")
       .eq("id", userId)
       .single();
 
+    console.log("Existing profile check:", existingProfile, "error:", checkError);
+
     let error;
     if (!existingProfile) {
+      console.log("Profile not found, creating new with display_name");
       // Create profile if doesn't exist
       const { error: insertError } = await supabase.from("profiles").insert({
         id: userId,
@@ -407,6 +424,7 @@ function DashboardContent() {
       });
       error = insertError;
     } else {
+      console.log("Profile found, updating display_name");
       // Update existing profile
       const { error: updateError } = await supabase
         .from("profiles")
@@ -417,10 +435,13 @@ function DashboardContent() {
 
     if (error) {
       console.error("Save name error:", error);
+      console.error("Error code:", error.code);
+      console.error("Error message:", error.message);
       toast.error("Failed to save name: " + error.message);
       return;
     }
 
+    console.log("Name saved successfully");
     setProfile((prev) => prev ? { ...prev, display_name: nameInput } : null);
     setIsEditingName(false);
     toast.success("Name updated");
