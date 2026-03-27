@@ -27,6 +27,7 @@ export function UpgradeCTA({
       const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // IMPORTANT: Include cookies for auth
       });
 
       console.log('Response status:', response.status);
