@@ -143,8 +143,5 @@ export async function POST(request: NextRequest) {
 }
 
 // Disable body parsing for raw body access
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+export const runtime = 'nodejs';
+export const bodySizeLimit = '1mb';
