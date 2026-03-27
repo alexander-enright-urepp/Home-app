@@ -135,38 +135,17 @@ function DashboardContent() {
         .eq("id", user.id)
         .single();
 
-      // If profile doesn't exist, try to create it
+      // If profile doesn't exist, use temporary data (don't try INSERT)
       if (profileError && profileError.code === 'PGRST116') {
-        console.log("Profile missing, creating...");
-        
+        console.log("Profile not found, using temporary data");
         const tempUsername = (user.email?.split('@')[0] || 'user') + Math.floor(Math.random() * 1000);
-        
-        // Try insert
-        const { data: newProfile, error: insertError } = await supabase
-          .from("profiles")
-          .insert({
-            id: user.id,
-            username: tempUsername,
-            display_name: '',
-            bio: '',
-          })
-          .select()
-          .single();
-        
-        if (!insertError && newProfile) {
-          profileData = newProfile;
-          console.log("Created:", newProfile);
-        } else {
-          console.log("Insert failed:", insertError?.message);
-          // Use temporary profile
-          profileData = {
-            id: user.id,
-            username: tempUsername,
-            display_name: '',
-            bio: '',
-            is_premium: false,
-          };
-        }
+        profileData = {
+          id: user.id,
+          username: tempUsername,
+          display_name: '',
+          bio: '',
+          is_premium: false,
+        };
       }
 
       if (profileData) {
