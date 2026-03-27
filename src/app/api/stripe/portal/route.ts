@@ -3,16 +3,20 @@ import { stripe, BASE_URL } from '@/lib/stripe';
 import { supabase } from '@/lib/supabase';
 
 // PREMIUM FEATURE: Create Stripe Customer Portal session
-// Allows users to manage their subscription (cancel, update payment, etc.)
-// MOCK MODE: Set MOCK_STRIPE=true in .env.local to test
 export async function POST(request: NextRequest) {
   try {
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
+    // Get userId from request body (client-side auth)
+    let userId: string | null = null;
+    try {
+      const body = await request.json();
+      userId = body.userId;
+    } catch (e) {
+      console.log('No body in portal request');
+    }
     
-    if (!user) {
+    if (!userId) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized - Please sign in' },
         { status: 401 }
       );
     }
@@ -21,9 +25,10 @@ export async function POST(request: NextRequest) {
     const isMockMode = process.env.MOCK_STRIPE === 'true' || process.env.NEXT_PUBLIC_MOCK_STRIPE === 'true';
     
     if (isMockMode) {
-      console.log('MOCK MODE: Opening portal for user:', user.id);
-      // Redirect to dashboard with mock flag
+      console.log('MOCK MODE: Opening portal for user:', userId);
+      // Return flag for mock cancellation
       return NextResponse.json({ 
+        mock: true,
         url: '/dashboard?tab=subscription&mock=cancel' 
       });
     }
@@ -32,7 +37,7 @@ export async function POST(request: NextRequest) {
     const { data: subscription } = await supabase
       .from('subscriptions')
       .select('stripe_customer_id')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single();
 
     if (!subscription?.stripe_customer_id) {

@@ -7,36 +7,49 @@ import { PremiumBadge, UpgradeCTA } from './UpgradeCTA';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
-// PREMIUM FEATURE: Subscription management panel
-// Shows current plan status and allows managing subscription
-// MOCK MODE: Shows test indicator when MOCK_STRIPE=true
 export function SubscriptionManager() {
   const { subscription, isPremium, refreshSubscription } = useSubscription();
   const [isLoading, setIsLoading] = useState(false);
   const [isMockMode, setIsMockMode] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  // Check if mock mode is enabled (client-side)
   useEffect(() => {
     setIsMockMode(process.env.NEXT_PUBLIC_MOCK_STRIPE === 'true');
+    // Get current user ID
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserId(user.id);
+    });
   }, []);
 
   const handleManageSubscription = async () => {
+    if (!userId) {
+      toast.error('Please sign in');
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
       const response = await fetch('/api/stripe/portal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
       });
 
       if (!response.ok) {
         throw new Error('Failed to create portal session');
       }
 
-      const { url } = await response.json();
+      const data = await response.json();
       
-      if (url) {
-        window.location.href = url;
+      // If mock mode, handle cancellation directly
+      if (data.mock) {
+        handleMockCancel();
+        return;
+      }
+      
+      if (data.url) {
+        window.location.href = data.url;
       } else {
         throw new Error('No portal URL returned');
       }
@@ -48,16 +61,21 @@ export function SubscriptionManager() {
     }
   };
 
-  // MOCK MODE: Handle mock cancellation
-  const handleMockCancel = async () => {
-    if (!confirm('Cancel your Premium subscription? (This is a test)')) return;
+  // Cancel subscription (mock or real)
+  const handleCancelSubscription = async () => {
+    if (!userId) {
+      toast.error('Please sign in');
+      return;
+    }
+    
+    if (!confirm('Are you sure you want to cancel your Premium subscription?\n\nYou will lose access to:\n• Unlimited links\n• Custom themes\n• Analytics\n• Custom colors & fonts')) {
+      return;
+    }
     
     setIsLoading(true);
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      // Update subscription to canceled status
+      // Update subscription to canceled
       await supabase
         .from('subscriptions')
         .update({ 
@@ -66,21 +84,38 @@ export function SubscriptionManager() {
           cancel_at_period_end: true,
           updated_at: new Date().toISOString(),
         })
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
+      // Update profile
       await supabase
         .from('profiles')
-        .update({ is_premium: false })
-        .eq('id', user.id);
+        .update({ 
+          is_premium: false,
+          custom_colors: null,
+          custom_font: 'dm-sans',
+          remove_branding: false,
+        })
+        .eq('id', userId);
 
-      toast.success('Subscription canceled (mock)');
+      toast.success('Subscription canceled. Reverting to Free plan.');
       refreshSubscription();
+      
+      // Force page refresh after 2 seconds
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } catch (error) {
       console.error('Error canceling:', error);
       toast.error('Failed to cancel subscription');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Mock mode cancel handler
+  const handleMockCancel = async () => {
+    if (!confirm('Cancel your Premium subscription? (This is a test)')) return;
+    await handleCancelSubscription();
   };
 
   const formatDate = (dateString: string | null) => {
@@ -138,7 +173,6 @@ export function SubscriptionManager() {
     );
   }
 
-  // Show premium subscription details
   const isCanceled = subscription?.cancel_at_period_end;
   const statusColor = subscription?.status === 'active' 
     ? 'bg-emerald-100 text-emerald-800' 
@@ -147,13 +181,10 @@ export function SubscriptionManager() {
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-6 border border-emerald-200">
-        {/* MOCK MODE INDICATOR */}
         {isMockMode && (
           <div className="bg-amber-100 border border-amber-300 rounded-lg px-3 py-2 mb-4 flex items-center gap-2">
             <Wrench className="w-4 h-4 text-amber-600" />
-            <span className="text-sm font-medium text-amber-800">
-              Mock Mode Active — No real payments processed
-            </span>
+            <span className="text-sm font-medium text-amber-800">Mock Mode Active</span>
           </div>
         )}
 
@@ -169,11 +200,6 @@ export function SubscriptionManager() {
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
                   {subscription?.status === 'active' ? 'Active' : subscription?.status}
                 </span>
-                {isMockMode && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                    TEST
-                  </span>
-                )}
               </div>
             </div>
           </div>
@@ -191,7 +217,7 @@ export function SubscriptionManager() {
               <p className="font-medium text-amber-900">Subscription ending</p>
               <p className="text-amber-700">
                 Your subscription will end on {formatDate(subscription?.current_period_end)}. 
-                You'll revert to the Free plan after that.
+                You'll revert to the Free plan.
               </p>
             </div>
           </div>
@@ -209,53 +235,31 @@ export function SubscriptionManager() {
           </div>
         </div>
 
-        {/* MOCK MODE: Show cancel button instead of portal */}
-        {isMockMode ? (
-          <button
-            onClick={handleMockCancel}
-            disabled={isLoading}
-            className="w-full bg-red-500 hover:bg-red-600 text-white px-4 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {isLoading ? (
-              <>
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                Canceling...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4" />
-                Cancel Subscription (Test)
-              </>
-            )}
-          </button>
-        ) : (
-          <button
-            onClick={handleManageSubscription}
-            disabled={isLoading}
-            className="w-full bg-slate-900 hover:bg-slate-800 text-white px-4 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {isLoading ? (
-              <>
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                Loading...
-              </>
-            ) : (
-              <>
-                <ExternalLink className="w-4 h-4" />
-                Manage Subscription
-              </>
-            )}
-          </button>
-        )}
+        {/* Cancel Subscription Button */}
+        <button
+          onClick={handleCancelSubscription}
+          disabled={isLoading || isCanceled}
+          className="w-full bg-red-500 hover:bg-red-600 disabled:bg-slate-300 text-white px-4 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {isLoading ? (
+            <>
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Canceling...
+            </>
+          ) : isCanceled ? (
+            'Cancellation Scheduled'
+          ) : (
+            <>
+              <XCircle className="w-4 h-4" />
+              Cancel Subscription
+            </>
+          )}
+        </button>
       </div>
 
-      {/* Premium features list */}
       <div className="bg-white rounded-xl border border-slate-200 p-6">
         <h4 className="font-semibold text-slate-900 mb-4">Your Premium Features</h4>
         
