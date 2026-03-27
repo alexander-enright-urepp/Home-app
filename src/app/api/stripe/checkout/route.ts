@@ -1,28 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 
 // PREMIUM FEATURE: Create Stripe Checkout session
 export async function POST(request: NextRequest) {
   try {
     console.log('Checkout API called');
     
-    // Create Supabase server client with proper cookie handling
-    const cookieStore = cookies();
-    
+    // Create Supabase server client with cookies from request
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           get(name: string) {
-            return cookieStore.get(name)?.value;
+            const cookie = request.cookies.get(name);
+            console.log('Getting cookie:', name, 'value:', cookie ? 'exists' : 'missing');
+            return cookie?.value;
           },
           set(name: string, value: string, options: any) {
-            cookieStore.set({ name, value, ...options });
+            // Not needed for read-only
           },
           remove(name: string, options: any) {
-            cookieStore.set({ name, value: '', ...options });
+            // Not needed for read-only
           },
         },
       }
