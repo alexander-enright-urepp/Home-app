@@ -246,26 +246,23 @@ export default function LoginPage() {
       
       console.log("Existing profile:", existingProfile);
       
-      let error;
-      if (existingProfile) {
-        // Profile exists, update it
-        console.log("Profile exists, updating username");
-        const { error: updateError } = await supabase
-          .from("profiles")
-          .update({ username: username })
-          .eq("id", userId);
-        error = updateError;
-      } else {
-        // Profile doesn't exist, create it
-        console.log("Profile doesn't exist, inserting new");
-        const { error: insertError } = await supabase
-          .from("profiles")
-          .insert({
-            id: userId,
-            username: username,
-          });
-        error = insertError;
+      // Use RPC function to handle upsert
+      console.log("Calling upsert_profile RPC...");
+      const { error: rpcError } = await supabase.rpc('upsert_profile', {
+        p_user_id: userId,
+        p_username: username,
+        p_display_name: '',
+        p_bio: ''
+      });
+      
+      if (rpcError) {
+        console.error("RPC error:", rpcError);
+        setErrors({ general: "Failed to save username: " + rpcError.message });
+        setIsLoading(false);
+        return;
       }
+      
+      console.log("Profile saved successfully via RPC");
       
       if (error) {
         console.error("Save failed:", error.code, error.message);

@@ -16,6 +16,37 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+// Helper function to create or update profile
+export async function createOrUpdateProfile(
+  userId: string,
+  username: string,
+  displayName?: string,
+  bio?: string
+) {
+  // First try to update
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update({ username, display_name: displayName, bio })
+    .eq("id", userId);
+
+  if (!updateError) {
+    return { success: true, error: null };
+  }
+
+  // If update failed (no row), try insert with .select() to get the result
+  const { error: insertError } = await supabase
+    .from("profiles")
+    .insert({
+      id: userId,
+      username,
+      display_name: displayName || '',
+      bio: bio || '',
+    })
+    .select();
+
+  return { success: !insertError, error: insertError };
+}
+
 export type Database = {
   public: {
     Tables: {

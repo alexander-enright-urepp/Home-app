@@ -1,0 +1,5 @@
+// Use raw SQL to insert profile via RPC
+const { error } = await supabase.rpc('create_profile_if_not_exists', {
+  user_id: userId,
+  username: username
+});
