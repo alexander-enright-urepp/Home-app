@@ -135,22 +135,43 @@ function DashboardContent() {
         .eq("id", user.id)
         .single();
 
-      // If profile doesn't exist, log warning
+      // If profile doesn't exist, create it with temporary data
       if (profileError && profileError.code === 'PGRST116') {
-        console.warn("Profile not found for user:", user.id);
-        // Set empty profile to avoid crashes
-        profileData = {
-          id: user.id,
-          username: '',
-          display_name: '',
-          bio: '',
-          avatar_url: null,
-          is_premium: false,
-          theme_preference: 'default',
-          custom_colors: null,
-          custom_font: 'dm-sans',
-          remove_branding: false,
-        };
+        console.warn("Profile not found for user:", user.id, "- creating...");
+        
+        const defaultUsername = user.email?.split('@')[0] || 'user';
+        const tempUsername = defaultUsername + Date.now().toString().slice(-4);
+        
+        const { data: newProfile, error: createError } = await supabase
+          .from("profiles")
+          .insert({
+            id: user.id,
+            username: tempUsername,
+            display_name: '',
+            bio: '',
+          })
+          .select()
+          .single();
+        
+        if (createError) {
+          console.error("Failed to create profile:", createError);
+          // Set empty profile to avoid crashes
+          profileData = {
+            id: user.id,
+            username: tempUsername,
+            display_name: '',
+            bio: '',
+            avatar_url: null,
+            is_premium: false,
+            theme_preference: 'default',
+            custom_colors: null,
+            custom_font: 'dm-sans',
+            remove_branding: false,
+          };
+        } else {
+          profileData = newProfile;
+          console.log("Profile created:", newProfile);
+        }
       }
 
       if (profileData) {

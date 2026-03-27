@@ -235,35 +235,46 @@ export default function LoginPage() {
         return;
       }
 
-      console.log("Updating profile for user:", userId, "with username:", username);
+      console.log("Saving username for user:", userId, "username:", username);
       
-      // Try to update profile first (trigger may have created it)
-      let { error: updateError } = await supabase
+      // Check if profile already exists
+      const { data: existingProfile } = await supabase
         .from("profiles")
-        .update({ username: username })
-        .eq("id", userId);
-
-      if (updateError) {
-        console.log("Update failed:", updateError.code, updateError.message, updateError.details);
-        console.log("Trying insert for userId:", userId);
+        .select("id, username")
+        .eq("id", userId)
+        .maybeSingle();
+      
+      console.log("Existing profile:", existingProfile);
+      
+      let error;
+      if (existingProfile) {
+        // Profile exists, update it
+        console.log("Profile exists, updating username");
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({ username: username })
+          .eq("id", userId);
+        error = updateError;
+      } else {
         // Profile doesn't exist, create it
-        const { error: insertError } = await supabase.from("profiles").insert({
-          id: userId,
-          username: username,
-        });
-        
-        if (insertError) {
-          console.error("Profile insert error code:", insertError.code);
-          console.error("Profile insert error message:", insertError.message);
-          console.error("Profile insert error details:", insertError.details);
-          console.error("Full insert error:", JSON.stringify(insertError, null, 2));
-          setErrors({ general: "Failed to save username: " + insertError.message + " (code: " + insertError.code + ")" });
-          setIsLoading(false);
-          return;
-        }
+        console.log("Profile doesn't exist, inserting new");
+        const { error: insertError } = await supabase
+          .from("profiles")
+          .insert({
+            id: userId,
+            username: username,
+          });
+        error = insertError;
       }
       
-      console.log("Profile updated successfully");
+      if (error) {
+        console.error("Save failed:", error.code, error.message);
+        setErrors({ general: "Failed to save username: " + error.message });
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("Profile saved successfully");
 
       toast.success("Welcome to Home!");
       setShouldRedirect(true);
