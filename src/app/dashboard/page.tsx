@@ -128,30 +128,46 @@ function DashboardContent() {
 
       setUserId(user.id);
 
-      // Fetch profile with premium status
-      let { data: profileData, error: profileError } = await supabase
+      // Fetch profile
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("username, display_name, bio, avatar_url, is_premium, theme_preference, custom_colors, custom_font, remove_branding")
+        .select("*")
         .eq("id", user.id)
         .single();
 
-      // If profile doesn't exist, use temporary data (don't try INSERT)
-      if (profileError && profileError.code === 'PGRST116') {
-        console.log("Profile not found, using temporary data");
-        const tempUsername = (user.email?.split('@')[0] || 'user') + Math.floor(Math.random() * 1000);
-        profileData = {
-          id: user.id,
-          username: tempUsername,
-          display_name: '',
-          bio: '',
-          is_premium: false,
-        };
+      if (profileError?.code === 'PGRST116') {
+        console.log("No profile, redirecting to setup");
+        router.push("/login?setup=true");
+        return;
       }
 
       if (profileData) {
         setProfile(profileData);
         setBioInput(profileData.bio || "");
         setNameInput(profileData.display_name || "");
+      } else if (profileError) {
+        console.log("No profile found, creating now...");
+        // Create profile immediately
+        const tempUsername = (user.email?.split('@')[0] || 'user') + '_' + Math.floor(Math.random() * 1000);
+        const { error: createError } = await supabase
+          .from("profiles")
+          .insert({
+            id: user.id,
+            username: tempUsername,
+            display_name: '',
+            bio: '',
+          });
+        
+        if (!createError) {
+          setProfile({
+            id: user.id,
+            username: tempUsername,
+            display_name: '',
+            bio: '',
+            is_premium: false,
+          });
+          toast.success('Profile created! You can edit your username below.');
+        }
       }
 
       // Fetch links
