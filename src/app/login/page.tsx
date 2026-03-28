@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [showUsername, setShowUsername] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [pendingUser, setPendingUser] = useState(null);
   const router = useRouter();
 
   // LOGIN
@@ -40,6 +41,7 @@ export default function LoginPage() {
     if (profile?.username) {
       router.push('/dashboard');
     } else {
+      setPendingUser(data.user);
       setShowUsername(true);
       setLoading(false);
     }
@@ -51,7 +53,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
       setError(error.message);
@@ -59,6 +61,11 @@ export default function LoginPage() {
       return;
     }
 
+    // Store the user for the username step
+    if (data.user) {
+      setPendingUser(data.user);
+    }
+    
     // Trigger auto-created profile, now get username
     setShowUsername(true);
     setLoading(false);
@@ -70,7 +77,8 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     
-    const { data: { user } } = await supabase.auth.getUser();
+    // Use the stored user, or fall back to getting current user
+    const user = pendingUser || (await supabase.auth.getUser()).data?.user;
     
     if (!user) {
       setError('Not logged in');
