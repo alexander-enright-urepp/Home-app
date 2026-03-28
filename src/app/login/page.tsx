@@ -78,18 +78,37 @@ export default function LoginPage() {
       return;
     }
 
-    // Simple UPDATE - trigger already created profile
-    const { error } = await supabase
+    // Try INSERT first (now that UNIQUE is removed, should work!)
+    console.log('Trying INSERT with username:', username);
+    const { data: newProfile, error: insertError } = await supabase
       .from('profiles')
-      .update({ username })
-      .eq('id', user.id);
+      .insert({
+        id: user.id,
+        username: username,
+        display_name: '',
+        bio: '',
+      })
+      .select()
+      .single();
 
-    if (error) {
-      setError('Failed: ' + error.message);
-      setLoading(false);
-      return;
+    if (insertError) {
+      console.error('INSERT failed:', insertError);
+      // Try UPDATE as fallback
+      console.log('Trying UPDATE...');
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ username })
+        .eq('id', user.id);
+      
+      if (updateError) {
+        console.error('UPDATE also failed:', updateError);
+        setError('Failed: ' + updateError.message);
+        setLoading(false);
+        return;
+      }
     }
 
+    console.log('Success!');
     toast.success('Welcome!');
     router.push('/dashboard');
   };
