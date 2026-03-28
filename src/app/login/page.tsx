@@ -78,34 +78,18 @@ export default function LoginPage() {
       return;
     }
 
-    // Try INSERT first (now that UNIQUE is removed, should work!)
-    console.log('Trying INSERT with username:', username);
-    const { data: newProfile, error: insertError } = await supabase
+    // The trigger already created a profile on signup, so UPDATE it
+    console.log('Updating profile with username:', username);
+    const { error: updateError } = await supabase
       .from('profiles')
-      .insert({
-        id: user.id,
-        username: username,
-        display_name: '',
-        bio: '',
-      })
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error('INSERT failed:', insertError);
-      // Try UPDATE as fallback
-      console.log('Trying UPDATE...');
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ username })
-        .eq('id', user.id);
-      
-      if (updateError) {
-        console.error('UPDATE also failed:', updateError);
-        setError('Failed: ' + updateError.message);
-        setLoading(false);
-        return;
-      }
+      .update({ username: username.toLowerCase() })
+      .eq('id', user.id);
+    
+    if (updateError) {
+      console.error('UPDATE failed:', updateError);
+      setError('Failed: ' + updateError.message);
+      setLoading(false);
+      return;
     }
 
     console.log('Success!');
