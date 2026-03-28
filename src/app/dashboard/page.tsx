@@ -119,6 +119,15 @@ function DashboardContent() {
 
   const fetchData = useCallback(async () => {
     try {
+      // First, ensure we have a valid session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.log("No valid session, redirecting to login...");
+        router.push("/login");
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {

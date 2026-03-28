@@ -40,6 +40,16 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const fetchSubscriptionData = async () => {
     try {
+      // Ensure session exists before querying
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.log('No session available for subscription fetch');
+        setSubscription(null);
+        setUserId(null);
+        setIsLoading(false);
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {

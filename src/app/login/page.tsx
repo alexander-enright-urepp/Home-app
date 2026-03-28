@@ -113,6 +113,10 @@ export default function LoginPage() {
 
     console.log('Success!');
     toast.success('Welcome!');
+    
+    // Small delay to ensure session is established
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     router.push('/dashboard');
   };
 
