@@ -53,17 +53,28 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    // Sign up the user
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
 
-    if (error) {
-      setError(error.message);
+    if (signUpError) {
+      setError(signUpError.message);
+      setLoading(false);
+      return;
+    }
+
+    // Auto-sign in after signup (since email confirmation is disabled or auto-confirmed)
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    
+    if (signInError) {
+      console.error('Auto sign-in failed:', signInError);
+      setError('Account created but sign-in failed. Please log in.');
       setLoading(false);
       return;
     }
 
     // Store the user for the username step
-    if (data.user) {
-      setPendingUser(data.user);
+    if (signInData.user) {
+      setPendingUser(signInData.user);
     }
     
     // Trigger auto-created profile, now get username
