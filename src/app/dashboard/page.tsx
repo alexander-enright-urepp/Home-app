@@ -128,17 +128,54 @@ function DashboardContent() {
 
       setUserId(user.id);
 
-      // Fetch profile
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
+      // Fetch profile with retry
+      let profileData = null;
+      let profileError = null;
+      
+      // Try 3 times with delay
+      for (let i = 0; i < 3; i++) {
+        const result = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+        
+        if (result.data) {
+          profileData = result.data;
+          break;
+        }
+        
+        profileError = result.error;
+        
+        if (i < 2) {
+          console.log(`Retry ${i + 1}: Profile not found, waiting...`);
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
 
-      if (profileError?.code === 'PGRST116') {
-        console.log("No profile, redirecting to setup");
-        router.push("/login?setup=true");
-        return;
+      if (!profileData && profileError?.code === 'PGRST116') {
+        console.log("No profile after retries, creating now...");
+        // Create profile immediately
+        const tempUsername = (user.email?.split('@')[0] || 'user') + '_' + Math.floor(Math.random() * 1000);
+        const { data: newProfile, error: createError } = await supabase
+          .from("profiles")
+          .insert({
+            id: user.id,
+            username: tempUsername,
+            display_name: '',
+            bio: '',
+          })
+          .select()
+          .single();
+        
+        if (!createError && newProfile) {
+          profileData = newProfile;
+          toast.success('Profile created!');
+        } else {
+          console.error("Failed to create profile:", createError);
+          router.push("/login?setup=true");
+          return;
+        }
       }
 
       if (profileData) {
