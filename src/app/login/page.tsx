@@ -21,13 +21,23 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const router = useRouter();
 
-  // Check for password reset token on mount
+  // Check for password reset token
   useEffect(() => {
-    // Check if URL contains access_token (from password reset email)
-    const hash = window.location.hash;
-    if (hash && hash.includes('access_token')) {
-      setShowResetPassword(true);
-    }
+    const checkForResetToken = () => {
+      const hash = window.location.hash;
+      console.log('Checking URL hash:', hash);
+      if (hash && (hash.includes('access_token') || hash.includes('type=recovery'))) {
+        console.log('Reset token detected, showing reset form');
+        setShowResetPassword(true);
+      }
+    };
+    
+    // Check immediately
+    checkForResetToken();
+    
+    // Also check when hash changes
+    window.addEventListener('hashchange', checkForResetToken);
+    return () => window.removeEventListener('hashchange', checkForResetToken);
   }, []);
 
   // LOGIN
