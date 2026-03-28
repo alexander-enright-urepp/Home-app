@@ -154,28 +154,9 @@ function DashboardContent() {
       }
 
       if (!profileData && profileError?.code === 'PGRST116') {
-        console.log("No profile after retries, creating now...");
-        // Create profile immediately
-        const tempUsername = (user.email?.split('@')[0] || 'user') + '_' + Math.floor(Math.random() * 1000);
-        const { data: newProfile, error: createError } = await supabase
-          .from("profiles")
-          .insert({
-            id: user.id,
-            username: tempUsername,
-            display_name: '',
-            bio: '',
-          })
-          .select()
-          .single();
-        
-        if (!createError && newProfile) {
-          profileData = newProfile;
-          toast.success('Profile created!');
-        } else {
-          console.error("Failed to create profile:", createError);
-          router.push("/login?setup=true");
-          return;
-        }
+        console.log("No profile found, redirecting to login...");
+        router.push("/login?setup=true");
+        return;
       }
 
       if (profileData) {
@@ -183,28 +164,9 @@ function DashboardContent() {
         setBioInput(profileData.bio || "");
         setNameInput(profileData.display_name || "");
       } else if (profileError) {
-        console.log("No profile found, creating now...");
-        // Create profile immediately
-        const tempUsername = (user.email?.split('@')[0] || 'user') + '_' + Math.floor(Math.random() * 1000);
-        const { error: createError } = await supabase
-          .from("profiles")
-          .insert({
-            id: user.id,
-            username: tempUsername,
-            display_name: '',
-            bio: '',
-          });
-        
-        if (!createError) {
-          setProfile({
-            id: user.id,
-            username: tempUsername,
-            display_name: '',
-            bio: '',
-            is_premium: false,
-          });
-          toast.success('Profile created! You can edit your username below.');
-        }
+        console.log("No profile found, redirecting to login...");
+        router.push("/login?setup=true");
+        return;
       }
 
       // Fetch links
@@ -393,30 +355,18 @@ function DashboardContent() {
   const handleSaveBio = async () => {
     if (!userId) return;
 
-    // Try update first, if fails create profile
-    let { error } = await supabase
+    const { error } = await supabase
       .from("profiles")
       .update({ bio: bioInput })
       .eq("id", userId);
 
     if (error) {
-      console.log("Update failed, creating profile with bio...");
-      const { error: insertError } = await supabase
-        .from("profiles")
-        .insert({ 
-          id: userId, 
-          bio: bioInput,
-          username: userId.slice(0, 8)
-        });
-      
-      if (insertError) {
-        console.error("Insert failed:", insertError);
-        toast.error("Failed to save bio: " + insertError.message);
-        return;
-      }
+      console.error("Update failed:", error);
+      toast.error("Failed to save bio: " + error.message);
+      return;
     }
 
-    setProfile((prev) => prev ? { ...prev, bio: bioInput } : { id: userId, bio: bioInput } as Profile);
+    setProfile((prev) => prev ? { ...prev, bio: bioInput } : null);
     setIsEditingBio(false);
     toast.success("Bio updated");
   };
@@ -430,28 +380,15 @@ function DashboardContent() {
 
     console.log("Saving display name:", nameInput, "for user:", userId);
 
-    // Try update first, if fails create profile
-    let { error } = await supabase
+    const { error } = await supabase
       .from("profiles")
       .update({ display_name: nameInput })
       .eq("id", userId);
 
     if (error) {
-      console.log("Update failed:", error.code, "- trying insert");
-      // No profile exists, create one
-      const { error: insertError } = await supabase
-        .from("profiles")
-        .insert({ 
-          id: userId, 
-          display_name: nameInput,
-          username: userId.slice(0, 8)
-        });
-      
-      if (insertError) {
-        console.error("Insert failed:", insertError);
-        toast.error("Failed to save name: " + insertError.message);
-        return;
-      }
+      console.error("Update failed:", error);
+      toast.error("Failed to save name: " + error.message);
+      return;
     }
 
     console.log("Name saved successfully");
