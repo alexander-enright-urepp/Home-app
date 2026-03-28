@@ -1,11 +1,10 @@
--- ONE CLEAN DATABASE SETUP
--- Run this entire file in Supabase SQL Editor
+-- ============================================
+-- FRESH DATABASE SETUP - March 28, 2026
+-- ============================================
 
--- ============================================
 -- PROFILES TABLE
--- ============================================
-CREATE TABLE IF NOT EXISTS profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id UUID PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
     display_name TEXT,
     bio TEXT,
@@ -22,12 +21,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 -- Enable RLS
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies
-DROP POLICY IF EXISTS "Profiles are viewable by everyone" ON profiles;
-DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
-DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
-
--- Create policies
+-- Policies
 CREATE POLICY "Profiles are viewable by everyone" 
     ON profiles FOR SELECT USING (true);
 
@@ -37,45 +31,61 @@ CREATE POLICY "Users can update own profile"
 CREATE POLICY "Users can insert own profile" 
     ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
 
--- ============================================
--- AUTO-CREATE PROFILE TRIGGER
--- ============================================
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO public.profiles (id, username, display_name, bio)
-    VALUES (
-        NEW.id,
-        COALESCE(
-            SPLIT_PART(NEW.email, '@', 1) || '_' || FLOOR(EXTRACT(EPOCH FROM NOW()) % 10000),
-            'user_' || FLOOR(EXTRACT(EPOCH FROM NOW()) % 10000)
-        ),
-        '',
-        ''
-    );
-    RETURN NEW;
-EXCEPTION WHEN OTHERS THEN
-    -- If insert fails, still allow user creation
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- LINKS TABLE
+CREATE TABLE IF NOT EXISTS public.links (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    subtitle TEXT,
+    url TEXT NOT NULL,
+    icon TEXT,
+    color TEXT DEFAULT '#ffffff',
+    sort_order INTEGER DEFAULT 0,
+    is_visible BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
--- Remove old trigger if exists
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+ALTER TABLE links ENABLE ROW LEVEL SECURITY;
 
--- Create trigger
-CREATE TRIGGER on_auth_user_created
-    AFTER INSERT ON auth.users
-    FOR EACH ROW
-    EXECUTE FUNCTION public.handle_new_user();
+CREATE POLICY "Links are viewable by everyone" 
+    ON links FOR SELECT USING (true);
 
--- ============================================
--- VERIFY
--- ============================================
-SELECT 'Table created' as status;
-SELECT conname as constraint_name, contype as type 
-FROM pg_constraint 
-WHERE conrelid = 'profiles'::regclass;
-SELECT tgname as trigger_name 
-FROM pg_trigger 
-WHERE tgrelid = 'auth.users'::regclass AND tgname = 'on_auth_user_created';
+CREATE POLICY "Users can manage own links" 
+    ON links FOR ALL USING (auth.uid() = user_id);
+
+-- SUBSCRIPTIONS TABLE
+CREATE TABLE IF NOT EXISTS public.subscriptions (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
+    stripe_customer_id TEXT,
+    stripe_subscription_id TEXT,
+    status TEXT DEFAULT 'inactive',
+    plan TEXT DEFAULT 'free',
+    current_period_end TIMESTAMPTZ,
+    cancel_at_period_end BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own subscription" 
+    ON subscriptions FOR SELECT USING (auth.uid() = user_id);
+
+-- LINK CLICKS TABLE  
+CREATE TABLE IF NOT EXISTS public.link_clicks (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    link_id UUID REFERENCES links(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    clicked_at TIMESTAMPTZ DEFAULT NOW(),
+    referrer TEXT,
+    user_agent TEXT
+);
+
+ALTER TABLE link_clicks ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own analytics" 
+    ON link_clicks FOR SELECT USING (auth.uid() = user_id);
+
+-- Verify
+SELECT 'Setup complete' as status;

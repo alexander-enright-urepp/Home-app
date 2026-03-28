@@ -14,11 +14,10 @@ export default function LoginPage() {
   const [showUsername, setShowUsername] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [pendingUser, setPendingUser] = useState(null);
   const router = useRouter();
 
   // LOGIN
-  const handleLogin = async (e) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -41,19 +40,17 @@ export default function LoginPage() {
     if (profile?.username) {
       router.push('/dashboard');
     } else {
-      setPendingUser(data.user);
       setShowUsername(true);
       setLoading(false);
     }
   };
 
   // SIGN UP
-  const handleSignUp = async (e) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     
-    // Sign up the user
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
 
     if (signUpError) {
@@ -62,34 +59,26 @@ export default function LoginPage() {
       return;
     }
 
-    // Auto-sign in after signup (since email confirmation is disabled or auto-confirmed)
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    // Auto-sign in after signup
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
     
     if (signInError) {
-      console.error('Auto sign-in failed:', signInError);
       setError('Account created but sign-in failed. Please log in.');
       setLoading(false);
       return;
     }
 
-    // Store the user for the username step
-    if (signInData.user) {
-      setPendingUser(signInData.user);
-    }
-    
-    // Trigger auto-created profile, now get username
     setShowUsername(true);
     setLoading(false);
   };
 
   // SAVE USERNAME
-  const handleSaveUsername = async (e) => {
+  const handleSaveUsername = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     
-    // Use the stored user, or fall back to getting current user
-    const user = pendingUser || (await supabase.auth.getUser()).data?.user;
+    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
       setError('Not logged in');
@@ -97,26 +86,38 @@ export default function LoginPage() {
       return;
     }
 
-    // The trigger already created a profile on signup, so UPDATE it
-    console.log('Updating profile with username:', username);
-    const { error: updateError } = await supabase
+    // INSERT new profile
+    const { error: insertError } = await supabase
       .from('profiles')
-      .update({ username: username.toLowerCase() })
-      .eq('id', user.id);
-    
-    if (updateError) {
-      console.error('UPDATE failed:', updateError);
-      setError('Failed: ' + updateError.message);
-      setLoading(false);
-      return;
+      .insert({
+        id: user.id,
+        username: username.toLowerCase(),
+        display_name: '',
+        bio: '',
+        is_premium: false,
+      });
+
+    if (insertError) {
+      // If unique violation, profile already exists - try UPDATE instead
+      if (insertError.code === '23505') {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ username: username.toLowerCase() })
+          .eq('id', user.id);
+        
+        if (updateError) {
+          setError('Failed: ' + updateError.message);
+          setLoading(false);
+          return;
+        }
+      } else {
+        setError('Failed: ' + insertError.message);
+        setLoading(false);
+        return;
+      }
     }
 
-    console.log('Success!');
     toast.success('Welcome!');
-    
-    // Small delay to ensure session is established
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
     router.push('/dashboard');
   };
 

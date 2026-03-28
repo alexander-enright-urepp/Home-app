@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { useEffect, useState, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   DndContext,
   closestCenter,
@@ -11,24 +11,24 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
-} from "@dnd-kit/core";
+} from '@dnd-kit/core';
 import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { Plus, ExternalLink, LogOut, User, BarChart3, Palette, CreditCard, CheckCircle, Copy, Check, Camera, Upload, X, Sparkles, Type } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import { useSubscription, SubscriptionProvider } from "@/lib/subscription";
-import { LinkRow } from "@/components/LinkRow";
-import { LinkModal } from "@/components/LinkModal";
-import { SkeletonCard } from "@/components/SkeletonCard";
-import { UpgradeCTA, PremiumBadge, LinkLimitIndicator } from "@/components/UpgradeCTA";
-import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
-import { ThemeSelector } from "@/components/ThemeSelector";
-import { SubscriptionManager } from "@/components/SubscriptionManager";
-import toast from "react-hot-toast";
+} from '@dnd-kit/sortable';
+import { Plus, ExternalLink, LogOut, User, BarChart3, Palette, CreditCard, CheckCircle, Copy, Check, Camera, Upload, X, Sparkles, Type } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useSubscription, SubscriptionProvider } from '@/lib/subscription';
+import { LinkRow } from '@/components/LinkRow';
+import { LinkModal } from '@/components/LinkModal';
+import { SkeletonCard } from '@/components/SkeletonCard';
+import { UpgradeCTA, PremiumBadge, LinkLimitIndicator } from '@/components/UpgradeCTA';
+import { AnalyticsDashboard } from '@/components/AnalyticsDashboard';
+import { ThemeSelector } from '@/components/ThemeSelector';
+import { SubscriptionManager } from '@/components/SubscriptionManager';
+import toast from 'react-hot-toast';
 
 interface LinkItem {
   id: string;
@@ -37,7 +37,7 @@ interface LinkItem {
   url: string;
   icon: string | null;
   color: string | null;
-  order: number;
+  sort_order: number;
   is_visible: boolean;
 }
 
@@ -50,10 +50,8 @@ interface Profile {
   theme_preference: string;
 }
 
-// PREMIUM FEATURE: Tab type for navigation
 type Tab = 'links' | 'analytics' | 'themes' | 'subscription';
 
-// PREMIUM GATE: Maximum links for free users
 const FREE_LINK_LIMIT = 5;
 
 function DashboardContent() {
@@ -61,7 +59,6 @@ function DashboardContent() {
   const searchParams = useSearchParams();
   const { isPremium, canAddLink, linkCount, refreshSubscription } = useSubscription();
   
-  // State
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,15 +73,12 @@ function DashboardContent() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
 
-  // Check for checkout success/canceled params
   useEffect(() => {
     const checkout = searchParams.get('checkout');
     if (checkout === 'success') {
       setShowCheckoutSuccess(true);
-      // Refresh subscription data and re-fetch profile
       const refreshData = async () => {
         await refreshSubscription();
-        // Also re-fetch profile to get updated is_premium status
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data: profileData } = await supabase
@@ -94,12 +88,10 @@ function DashboardContent() {
             .single();
           if (profileData) {
             setProfile(profileData);
-            console.log('Profile refreshed, is_premium:', profileData.is_premium);
           }
         }
       };
       refreshData();
-      // Clear the param after a delay so success message shows
       setTimeout(() => {
         router.replace('/dashboard');
         setShowCheckoutSuccess(false);
@@ -119,15 +111,6 @@ function DashboardContent() {
 
   const fetchData = useCallback(async () => {
     try {
-      // First, ensure we have a valid session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        console.log("No valid session, redirecting to login...");
-        router.push("/login");
-        return;
-      }
-
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -137,59 +120,52 @@ function DashboardContent() {
 
       setUserId(user.id);
 
-      // Fetch profile with retry
-      let profileData = null;
-      let profileError = null;
-      
-      // Try 3 times with delay
-      for (let i = 0; i < 3; i++) {
-        const result = await supabase
+      // Fetch profile
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError?.code === 'PGRST116') {
+        // No profile - create one
+        const tempUsername = (user.email?.split('@')[0] || 'user') + '_' + Math.floor(Math.random() * 1000);
+        const { data: newProfile, error: insertError } = await supabase
           .from("profiles")
-          .select("*")
-          .eq("id", user.id)
+          .insert({
+            id: user.id,
+            username: tempUsername,
+            display_name: '',
+            bio: '',
+            is_premium: false,
+          })
+          .select()
           .single();
         
-        if (result.data) {
-          profileData = result.data;
-          break;
+        if (!insertError && newProfile) {
+          setProfile(newProfile);
+          setBioInput(newProfile.bio || "");
+          setNameInput(newProfile.display_name || "");
+          toast.success('Profile created! You can edit your username below.');
+        } else {
+          console.error("Failed to create profile:", insertError);
+          router.push("/login?setup=true");
+          return;
         }
-        
-        profileError = result.error;
-        
-        if (i < 2) {
-          console.log(`Retry ${i + 1}: Profile not found, waiting...`);
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
-
-      if (!profileData && profileError?.code === 'PGRST116') {
-        console.log("No profile found, redirecting to login...");
-        router.push("/login?setup=true");
-        return;
-      }
-
-      if (profileData) {
+      } else if (profileData) {
         setProfile(profileData);
         setBioInput(profileData.bio || "");
         setNameInput(profileData.display_name || "");
-      } else if (profileError) {
-        console.log("No profile found, redirecting to login...");
-        router.push("/login?setup=true");
-        return;
       }
 
       // Fetch links
-      const { data: linksData, error: linksError } = await supabase
+      const { data: linksData } = await supabase
         .from("links")
         .select("*")
         .eq("user_id", user.id)
-        .order("order", { ascending: true });
+        .order("sort_order", { ascending: true });
 
-      if (linksError) {
-        console.error("Error fetching links:", linksError);
-      } else {
-        setLinks(linksData || []);
-      }
+      setLinks(linksData || []);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -207,7 +183,6 @@ function DashboardContent() {
     router.push("/");
   };
 
-  // PREMIUM GATE: Check link limit before adding
   const handleAddLink = async (formData: {
     title: string;
     subtitle: string;
@@ -218,7 +193,6 @@ function DashboardContent() {
   }) => {
     if (!userId) return;
 
-    // PREMIUM GATE: Prevent free users from exceeding 5 links
     if (!isPremium && links.length >= FREE_LINK_LIMIT) {
       toast.error("Free plan limited to 5 links. Upgrade to Premium for unlimited!");
       return;
@@ -231,7 +205,7 @@ function DashboardContent() {
       url: formData.url,
       icon: formData.icon || null,
       color: formData.color || "#ffffff",
-      order: links.length,
+      sort_order: links.length,
       is_visible: formData.is_visible,
     };
 
@@ -241,9 +215,7 @@ function DashboardContent() {
       .select()
       .single();
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     setLinks([...links, data]);
     toast.success("Link added!");
@@ -272,9 +244,7 @@ function DashboardContent() {
       })
       .eq("id", editingLink.id);
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     setLinks(
       links.map((link) =>
@@ -326,11 +296,9 @@ function DashboardContent() {
     );
   };
 
-  // PREMIUM FEATURE: Drag-drop reordering (gated for free users)
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
-    // PREMIUM GATE: Free users can't reorder
     if (!isPremium) {
       toast.error("Link reordering is a Premium feature!");
       return;
@@ -343,12 +311,11 @@ function DashboardContent() {
       const newLinks = arrayMove(links, oldIndex, newIndex);
       setLinks(newLinks);
 
-      // Update order in database
       try {
         for (let i = 0; i < newLinks.length; i++) {
           const { error } = await supabase
             .from("links")
-            .update({ order: i })
+            .update({ sort_order: i })
             .eq("id", newLinks[i].id);
           
           if (error) throw error;
@@ -370,7 +337,6 @@ function DashboardContent() {
       .eq("id", userId);
 
     if (error) {
-      console.error("Update failed:", error);
       toast.error("Failed to save bio: " + error.message);
       return;
     }
@@ -380,14 +346,8 @@ function DashboardContent() {
     toast.success("Bio updated");
   };
 
-  // Save Display Name
   const handleSaveName = async () => {
-    if (!userId) {
-      console.error("No userId available");
-      return;
-    }
-
-    console.log("Saving display name:", nameInput, "for user:", userId);
+    if (!userId) return;
 
     const { error } = await supabase
       .from("profiles")
@@ -395,23 +355,19 @@ function DashboardContent() {
       .eq("id", userId);
 
     if (error) {
-      console.error("Update failed:", error);
       toast.error("Failed to save name: " + error.message);
       return;
     }
 
-    console.log("Name saved successfully");
     setProfile((prev) => prev ? { ...prev, display_name: nameInput } : null);
     setIsEditingName(false);
     toast.success("Name updated");
   };
 
-  // Profile Picture Upload
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !userId) return;
 
-    // Validate file
     if (file.size > 2 * 1024 * 1024) {
       toast.error('File too large. Max 2MB');
       return;
@@ -424,7 +380,6 @@ function DashboardContent() {
     setUploadingAvatar(true);
     
     try {
-      // Upload to Supabase Storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${userId}-${Date.now()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
@@ -435,12 +390,10 @@ function DashboardContent() {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
-      // Update profile
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: publicUrl })
@@ -451,7 +404,6 @@ function DashboardContent() {
       setProfile((prev) => prev ? { ...prev, avatar_url: publicUrl } : null);
       toast.success('Profile picture updated!');
     } catch (error) {
-      console.error('Upload error:', error);
       toast.error('Failed to upload image');
     } finally {
       setUploadingAvatar(false);
@@ -464,7 +416,6 @@ function DashboardContent() {
     setUploadingAvatar(true);
     
     try {
-      // Update profile to remove avatar
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: null })
@@ -475,7 +426,6 @@ function DashboardContent() {
       setProfile((prev) => prev ? { ...prev, avatar_url: null } : null);
       toast.success('Profile picture removed');
     } catch (error) {
-      console.error('Remove error:', error);
       toast.error('Failed to remove image');
     } finally {
       setUploadingAvatar(false);
@@ -485,12 +435,11 @@ function DashboardContent() {
   const handleThemeChange = async (themeId: string) => {
     if (!userId) return;
     
-    // Clear custom colors when selecting a theme (use theme colors instead)
     const { error } = await supabase
       .from("profiles")
       .update({ 
         theme_preference: themeId,
-        custom_colors: null // Reset to use theme colors
+        custom_colors: null
       })
       .eq("id", userId);
     
@@ -503,7 +452,6 @@ function DashboardContent() {
     toast.success("Theme updated!");
   };
 
-  // PREMIUM: Handle custom color changes
   const handleColorChange = async (colorKey: string, value: string) => {
     if (!userId || !isPremium) return;
     
@@ -525,7 +473,6 @@ function DashboardContent() {
     setProfile((prev) => prev ? { ...prev, custom_colors: newColors } : null);
   };
 
-  // PREMIUM: Handle branding toggle
   const handleBrandingToggle = async () => {
     if (!userId || !isPremium) return;
     
@@ -545,7 +492,6 @@ function DashboardContent() {
     toast.success(newValue ? "Branding removed!" : "Branding restored");
   };
 
-  // PREMIUM: Handle font change
   const handleFontChange = async (font: string) => {
     if (!userId || !isPremium) return;
     
@@ -563,7 +509,6 @@ function DashboardContent() {
     toast.success("Font updated!");
   };
 
-  // Copy public profile link to clipboard
   const [copied, setCopied] = useState(false);
   const copyProfileLink = async () => {
     if (!profile?.username) return;
@@ -580,7 +525,6 @@ function DashboardContent() {
   };
 
   const openAddModal = () => {
-    // PREMIUM GATE: Check before opening modal
     if (!canAddLink) {
       toast.error("Link limit reached! Upgrade to Premium for unlimited links.");
       return;
@@ -612,7 +556,6 @@ function DashboardContent() {
     );
   }
 
-  // Checkout success message
   if (showCheckoutSuccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-emerald-50 p-4">
@@ -639,7 +582,6 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-8 py-4">
           <div className="flex items-center justify-between">
@@ -693,7 +635,6 @@ function DashboardContent() {
         </div>
       </header>
 
-      {/* Tab Navigation */}
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-8">
           <nav className="flex gap-1 -mb-px">
@@ -723,12 +664,9 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-8 py-8">
-        {/* Links Tab */}
         {activeTab === 'links' && (
           <div className="space-y-8">
-            {/* Profile Picture Section */}
             <div className="bg-white rounded-xl p-6 border border-slate-200">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -738,7 +676,6 @@ function DashboardContent() {
               </div>
               
               <div className="flex items-center gap-6">
-                {/* Avatar Display */}
                 <div className="relative">
                   {profile?.avatar_url ? (
                     <img
@@ -753,7 +690,6 @@ function DashboardContent() {
                   )}
                 </div>
                 
-                {/* Upload Button */}
                 <div className="flex flex-col gap-2">
                   <label className={`inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium transition-colors cursor-pointer ${uploadingAvatar ? 'opacity-50' : ''}`}>
                     <Upload className="w-4 h-4" />
@@ -785,7 +721,6 @@ function DashboardContent() {
               </div>
             </div>
 
-            {/* Name Section */}
             <div className="bg-white rounded-xl p-6 border border-slate-200">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -842,7 +777,6 @@ function DashboardContent() {
               )}
             </div>
 
-            {/* Bio Section */}
             <div className="bg-white rounded-xl p-6 border border-slate-200">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -899,7 +833,6 @@ function DashboardContent() {
               )}
             </div>
 
-            {/* Link Limit Indicator */}
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-slate-900">Your Links</h2>
               <LinkLimitIndicator 
@@ -909,7 +842,6 @@ function DashboardContent() {
               />
             </div>
 
-            {/* Add Link Button with limit check */}
             <button
               onClick={openAddModal}
               disabled={!canAddLink}
@@ -923,7 +855,6 @@ function DashboardContent() {
               {canAddLink ? 'Add Link' : 'Link Limit Reached'}
             </button>
 
-            {/* Show upgrade CTA when at or near limit */}
             {!isPremium && links.length >= FREE_LINK_LIMIT - 1 && (
               <UpgradeCTA 
                 title="Need more links?"
@@ -932,7 +863,6 @@ function DashboardContent() {
               />
             )}
 
-            {/* Links List */}
             {links.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-xl border border-slate-200">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
@@ -980,7 +910,6 @@ function DashboardContent() {
               </DndContext>
             )}
 
-            {/* Reorder hint for free users */}
             {!isPremium && links.length > 1 && (
               <p className="text-sm text-slate-500 text-center">
                 💡 Premium users can drag and drop to reorder links
@@ -989,15 +918,12 @@ function DashboardContent() {
           </div>
         )}
 
-        {/* Analytics Tab */}
         {activeTab === 'analytics' && (
           <AnalyticsDashboard />
         )}
 
-        {/* Themes Tab */}
         {activeTab === 'themes' && (
           <div className="space-y-6">
-            {/* Theme Selector */}
             <div className="bg-white rounded-xl border border-slate-200 p-6">
               <ThemeSelector 
                 currentTheme={profile?.theme_preference || 'default'}
@@ -1005,7 +931,6 @@ function DashboardContent() {
               />
             </div>
 
-            {/* PREMIUM: Custom Colors */}
             {isPremium && (
               <div className="bg-white rounded-xl border border-slate-200 p-6">
                 <div className="flex items-center gap-2 mb-4">
@@ -1059,7 +984,6 @@ function DashboardContent() {
               </div>
             )}
 
-            {/* PREMIUM: Branding Toggle */}
             {isPremium && (
               <div className="bg-white rounded-xl border border-slate-200 p-6">
                 <div className="flex items-center justify-between">
@@ -1085,7 +1009,6 @@ function DashboardContent() {
               </div>
             )}
 
-            {/* PREMIUM: Custom Font */}
             {isPremium && (
               <div className="bg-white rounded-xl border border-slate-200 p-6">
                 <div className="flex items-center gap-2 mb-4">
@@ -1115,7 +1038,6 @@ function DashboardContent() {
           </div>
         )}
 
-        {/* Subscription Tab */}
         {activeTab === 'subscription' && (
           <SubscriptionManager />
         )}
@@ -1146,7 +1068,6 @@ function DashboardContent() {
   );
 }
 
-// Wrap with SubscriptionProvider and Suspense for useSearchParams
 import { Suspense } from 'react';
 
 function DashboardLoading() {
