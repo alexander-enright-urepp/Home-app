@@ -21,23 +21,19 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const router = useRouter();
 
-  // Check for password reset token
+  // Listen for auth state changes (including password recovery)
   useEffect(() => {
-    const checkForResetToken = () => {
-      const hash = window.location.hash;
-      console.log('Checking URL hash:', hash);
-      if (hash && (hash.includes('access_token') || hash.includes('type=recovery'))) {
-        console.log('Reset token detected, showing reset form');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth event:', event);
+      if (event === 'PASSWORD_RECOVERY') {
+        console.log('Password recovery detected');
         setShowResetPassword(true);
       }
+    });
+
+    return () => {
+      subscription.unsubscribe();
     };
-    
-    // Check immediately
-    checkForResetToken();
-    
-    // Also check when hash changes
-    window.addEventListener('hashchange', checkForResetToken);
-    return () => window.removeEventListener('hashchange', checkForResetToken);
   }, []);
 
   // LOGIN
