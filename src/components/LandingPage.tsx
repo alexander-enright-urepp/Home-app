@@ -344,7 +344,7 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="text-2xl font-bold text-white">Aylae</span>
-            <span className="text-green-400">— All Your Links, Access Easily.</span>
+            <span className="text-green-400">— All Your Links, Accessed Easily.</span>
           </div>
           <p className="text-green-400/60 text-sm">
             © 2026 Aylae. Built with ❤️
