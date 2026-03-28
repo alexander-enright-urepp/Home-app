@@ -61,6 +61,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
       setUserId(user.id);
 
+      // Fetch profile to check is_premium flag
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('is_premium')
+        .eq('id', user.id)
+        .single();
+
+      const isPremiumFromProfile = profileData?.is_premium || false;
+
       // Fetch subscription
       const { data: subData, error: subError } = await supabase
         .from('subscriptions')
@@ -72,7 +81,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         console.error('Error fetching subscription:', subError);
       }
 
-      console.log('Fetched subscription:', subData);
+      console.log('Fetched subscription:', subData, 'Profile is_premium:', isPremiumFromProfile);
 
       // Fetch link count
       const { count, error: countError } = await supabase
@@ -89,12 +98,18 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         user_id: user.id,
         stripe_customer_id: null,
         stripe_subscription_id: null,
-        status: 'inactive',
-        plan: 'free',
+        status: isPremiumFromProfile ? 'active' : 'inactive',
+        plan: isPremiumFromProfile ? 'premium' : 'free',
         current_period_end: null,
         cancel_at_period_end: false,
         created_at: new Date().toISOString(),
       };
+
+      // If subscription exists but profile says premium, ensure status is active
+      if (isPremiumFromProfile && newSub.status !== 'active') {
+        newSub.status = 'active';
+        newSub.plan = 'premium';
+      }
 
       setSubscription(newSub);
       setLinkCount(count || 0);
