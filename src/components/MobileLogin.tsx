@@ -56,7 +56,7 @@ export function MobileLogin() {
           </svg>
         </div>
         <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-          Home
+          Aylae
         </h1>
         <p className="text-gray-400 mt-2">Your links, everywhere</p>
       </div>

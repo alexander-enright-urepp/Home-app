@@ -87,7 +87,7 @@ const premiumFeatures = [
   {
     icon: Sparkles,
     title: "Remove Branding",
-    description: "Hide the 'Made with Home' badge on your public page."
+    description: "Hide the 'Made with Aylae' badge on your public page."
   }
 ];
 
@@ -95,7 +95,7 @@ const howItWorks = [
   {
     step: "01",
     title: "Create Your Profile",
-    description: "Sign up in seconds and choose a unique username for your Home page."
+    description: "Sign up in seconds and choose a unique username for your Aylae page."
   },
   {
     step: "02",
@@ -135,7 +135,7 @@ export function LandingPage() {
               href="/login"
               className="group flex items-center gap-2 px-8 py-4 bg-green-600 hover:bg-green-500 text-white rounded-xl font-semibold transition-all hover:scale-105"
             >
-              Create Your Home
+              Create Your Aylae
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
             <a
@@ -156,7 +156,7 @@ export function LandingPage() {
               See what others are building
             </h2>
             <p className="text-green-200/70 text-lg">
-              Join thousands of creators sharing their world with Home.
+              Join thousands of creators sharing their world with Aylae.
             </p>
           </div>
 
@@ -285,7 +285,7 @@ export function LandingPage() {
               How it works
             </h2>
             <p className="text-green-200/70 text-lg">
-              Get your Home page live in under 2 minutes.
+              Get your Aylae page live in under 2 minutes.
             </p>
           </div>
 
@@ -312,11 +312,11 @@ export function LandingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="bg-gradient-to-r from-green-600/20 to-orange-600/20 border border-green-500/30 rounded-3xl p-12">
             <h2 className="text-3xl sm:text-5xl font-bold text-white mb-6">
-              Ready to create your Home?
+              Ready to create your Aylae?
             </h2>
             <p className="text-xl text-green-200/80 mb-8 max-w-2xl mx-auto">
               Join thousands of creators, developers, and entrepreneurs 
-              who trust Home to share their digital presence.
+              who trust Aylae to share their digital presence.
             </p>
 
             <div className="flex flex-wrap justify-center gap-4 mb-8">
@@ -343,11 +343,11 @@ export function LandingPage() {
       <footer className="px-4 sm:px-6 lg:px-8 py-12 border-t border-green-900/30">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-white">Home</span>
-            <span className="text-green-400">— Your link, your way.</span>
+            <span className="text-2xl font-bold text-white">Aylae</span>
+            <span className="text-green-400">— All Your Links, Access Easily.</span>
           </div>
           <p className="text-green-400/60 text-sm">
-            © 2026 Home. Built with ❤️
+            © 2026 Aylae. Built with ❤️
           </p>
         </div>
       </footer>

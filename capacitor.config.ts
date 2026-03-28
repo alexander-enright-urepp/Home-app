@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.opc.home',
-  appName: 'Home',
+  appId: 'com.opc.aylae',
+  appName: 'Aylae',
   webDir: 'out',
   server: {
     androidScheme: 'https',

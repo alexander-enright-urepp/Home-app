@@ -163,7 +163,7 @@ export function SubscriptionManager() {
             </div>
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <XCircle className="w-4 h-4 text-slate-400" />
-              <span>Home branding shown</span>
+              <span>Aylae branding shown</span>
             </div>
           </div>
 
@@ -269,7 +269,7 @@ export function SubscriptionManager() {
             'Custom themes',
             'Analytics dashboard',
             'Custom colors & fonts',
-            'Remove Home branding',
+            'Remove Aylae branding',
             'Custom page URL',
             'Priority support',
           ].map((feature) => (

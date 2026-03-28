@@ -187,13 +187,13 @@ export default function PublicProfilePage({ params }: PageProps) {
         <div className="text-center">
           <h1 className="text-2xl font-display mb-2">This page doesn&apos;t exist</h1>
           <p className="text-slate-500 mb-6">
-            We couldn&apos;t find a Home page for @{params.username}
+            We couldn&apos;t find an Aylae page for @{params.username}
           </p>
           <Link
             href="/"
             className="inline-flex items-center px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
           >
-            Go Home
+            Go to Aylae
           </Link>
         </div>
       </div>
@@ -210,7 +210,7 @@ export default function PublicProfilePage({ params }: PageProps) {
             href="/"
             className="inline-flex items-center px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
           >
-            Go Home
+            Go to Aylae
           </Link>
         </div>
       </div>
@@ -284,7 +284,7 @@ export default function PublicProfilePage({ params }: PageProps) {
               className="text-xs opacity-50 hover:opacity-100 transition-opacity"
               style={{ color: getThemeStyles().color }}
             >
-              Made with Home
+              Made with Aylae
             </Link>
           </div>
         )}

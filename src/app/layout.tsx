@@ -4,8 +4,8 @@ import { Toaster } from "react-hot-toast";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Home - Your Linktree",
-  description: "Create your personal link page with Home",
+  title: "Aylae - All Your Links, Access Easily",
+  description: "Create your personal link page with Aylae",
 };
 
 export default function RootLayout({

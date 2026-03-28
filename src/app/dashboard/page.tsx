@@ -586,7 +586,7 @@ function DashboardContent() {
         <div className="max-w-4xl mx-auto px-4 sm:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-display">Home</h1>
+              <h1 className="text-2xl font-display">Aylae</h1>
               {profile && (
                 <div className="flex items-center gap-2">
                   <span className="text-slate-400">|</span>
@@ -990,8 +990,8 @@ function DashboardContent() {
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-emerald-500" />
                     <div>
-                      <h3 className="font-semibold text-slate-900">Remove Home Branding</h3>
-                      <p className="text-sm text-slate-500">Hide "Made with Home" from your profile</p>
+                      <h3 className="font-semibold text-slate-900">Remove Aylae Branding</h3>
+                      <p className="text-sm text-slate-500">Hide "Made with Aylae" from your profile</p>
                     </div>
                     <PremiumBadge />
                   </div>
