@@ -18,7 +18,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { Plus, ExternalLink, LogOut, User, BarChart3, Palette, CreditCard, CheckCircle, Copy, Check, Camera, Upload, X, Sparkles, Type } from 'lucide-react';
+import { Plus, ExternalLink, LogOut, User, BarChart3, Palette, CreditCard, CheckCircle, Copy, Check, Camera, Upload, X, Sparkles, Type, Settings as SettingsIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useSubscription, SubscriptionProvider } from '@/lib/subscription';
 import { LinkRow } from '@/components/LinkRow';
@@ -50,7 +50,7 @@ interface Profile {
   theme_preference: string;
 }
 
-type Tab = 'links' | 'analytics' | 'themes' | 'subscription';
+type Tab = 'links' | 'analytics' | 'themes' | 'subscription' | 'settings';
 
 const FREE_LINK_LIMIT = 5;
 
@@ -72,6 +72,7 @@ function DashboardContent() {
   const [activeTab, setActiveTab] = useState<Tab>('links');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     const checkout = searchParams.get('checkout');
@@ -119,6 +120,7 @@ function DashboardContent() {
       }
 
       setUserId(user.id);
+      setCurrentUser(user);
 
       // Fetch profile
       const { data: profileData, error: profileError } = await supabase
@@ -637,17 +639,18 @@ function DashboardContent() {
 
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-8">
-          <nav className="flex gap-1 -mb-px">
+          <nav className="flex gap-1 -mb-px overflow-x-auto scrollbar-hide pb-px">
             {[
               { id: 'links', label: 'Links', icon: ExternalLink },
               { id: 'analytics', label: 'Analytics', icon: BarChart3, premium: true },
               { id: 'themes', label: 'Themes', icon: Palette },
               { id: 'subscription', label: 'Subscription', icon: CreditCard },
+              { id: 'settings', label: 'Settings', icon: SettingsIcon },
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as Tab)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
                   activeTab === tab.id
                     ? 'border-emerald-500 text-emerald-600'
                     : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -1040,6 +1043,59 @@ function DashboardContent() {
 
         {activeTab === 'subscription' && (
           <SubscriptionManager />
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+              <h2 className="text-xl font-semibold text-slate-900 mb-4">Account Settings</h2>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                  <div>
+                    <h3 className="font-medium text-slate-900">Change Password</h3>
+                    <p className="text-sm text-slate-500">Update your account password</p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (!currentUser?.email) {
+                        toast.error('Email not found');
+                        return;
+                      }
+                      const { error } = await supabase.auth.resetPasswordForEmail(currentUser.email, {
+                        redirectTo: `${window.location.origin}/login`,
+                      });
+                      if (error) {
+                        toast.error(error.message);
+                      } else {
+                        toast.success('Password reset email sent!');
+                      }
+                    }}
+                    className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+                  >
+                    Reset Password
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                  <div>
+                    <h3 className="font-medium text-slate-900">Delete Account</h3>
+                    <p className="text-sm text-slate-500">Permanently delete your account and all data</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (confirm('Are you sure? This cannot be undone.')) {
+                        toast.error('Contact support to delete account');
+                      }
+                    }}
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </main>
 
