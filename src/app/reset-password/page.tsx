@@ -20,18 +20,19 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const exchangeToken = async () => {
       try {
-        // Supabase can automatically handle the hash params
-        const { data, error } = await supabase.auth.getSessionFromUrl({
-          storeSession: true,
-        });
-
+        // Supabase automatically handles the hash params on init
+        // Just check if we have a session after a brief delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
         if (error) {
-          console.error('Session from URL error:', error);
+          console.error('Get session error:', error);
           setError('Invalid or expired link. Please request a new password reset.');
-        } else if (data?.session) {
+        } else if (session) {
           console.log('Session established');
         } else {
-          setError('Could not establish session.');
+          setError('No valid session. Please request a new password reset.');
         }
       } catch (err) {
         console.error('Unexpected error:', err);
