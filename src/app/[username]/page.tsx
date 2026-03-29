@@ -3,10 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { Avatar } from "@/components/Avatar";
-import { LinkCard } from "@/components/LinkCard";
-import { SkeletonCard, SkeletonAvatar, SkeletonText } from "@/components/SkeletonCard";
-import { fontVariables } from "@/lib/fonts";
+import { ArrowUpRight, Share2, Instagram, Twitter, Youtube, Github, Linkedin, Globe, Mail, Music, Video, ExternalLink, Sparkles } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -35,15 +32,55 @@ interface PageProps {
   params: { username: string };
 }
 
-const THEMES: Record<string, { colors: { primary: string; secondary: string; background: string; accent: string } }> = {
-  default: { colors: { primary: "#0f172a", secondary: "#334155", background: "#ffffff", accent: "#10b981" } },
-  dark: { colors: { primary: "#ffffff", secondary: "#94a3b8", background: "#0f172a", accent: "#10b981" } },
-  ocean: { colors: { primary: "#0c4a6e", secondary: "#0369a1", background: "#f0f9ff", accent: "#0ea5e9" } },
-  sunset: { colors: { primary: "#7c2d12", secondary: "#c2410c", background: "#fff7ed", accent: "#f97316" } },
-  forest: { colors: { primary: "#14532d", secondary: "#15803d", background: "#f0fdf4", accent: "#22c55e" } },
-  purple: { colors: { primary: "#581c87", secondary: "#7c3aed", background: "#faf5ff", accent: "#a855f7" } },
-  rose: { colors: { primary: "#881337", secondary: "#e11d48", background: "#fff1f2", accent: "#fb7185" } },
-  midnight: { colors: { primary: "#e2e8f0", secondary: "#94a3b8", background: "#020617", accent: "#6366f1" } },
+const THEMES: Record<string, { 
+  colors: { primary: string; secondary: string; background: string; accent: string; card: string; }
+  gradient: string;
+}> = {
+  default: { 
+    colors: { primary: "#0f172a", secondary: "#64748b", background: "#f8fafc", accent: "#10b981", card: "#ffffff" },
+    gradient: "from-slate-100 to-slate-200"
+  },
+  dark: { 
+    colors: { primary: "#ffffff", secondary: "#94a3b8", background: "#0f172a", accent: "#10b981", card: "#1e293b" },
+    gradient: "from-slate-900 to-slate-800"
+  },
+  ocean: { 
+    colors: { primary: "#0c4a6e", secondary: "#0369a1", background: "#f0f9ff", accent: "#0ea5e9", card: "#ffffff" },
+    gradient: "from-sky-100 to-blue-200"
+  },
+  sunset: { 
+    colors: { primary: "#7c2d12", secondary: "#c2410c", background: "#fff7ed", accent: "#f97316", card: "#ffffff" },
+    gradient: "from-orange-100 to-amber-200"
+  },
+  forest: { 
+    colors: { primary: "#14532d", secondary: "#15803d", background: "#f0fdf4", accent: "#22c55e", card: "#ffffff" },
+    gradient: "from-green-100 to-emerald-200"
+  },
+  purple: { 
+    colors: { primary: "#581c87", secondary: "#7c3aed", background: "#faf5ff", accent: "#a855f7", card: "#ffffff" },
+    gradient: "from-purple-100 to-violet-200"
+  },
+  rose: { 
+    colors: { primary: "#881337", secondary: "#e11d48", background: "#fff1f2", accent: "#fb7185", card: "#ffffff" },
+    gradient: "from-rose-100 to-pink-200"
+  },
+  midnight: { 
+    colors: { primary: "#e2e8f0", secondary: "#94a3b8", background: "#020617", accent: "#6366f1", card: "#0f172a" },
+    gradient: "from-indigo-950 to-slate-900"
+  },
+};
+
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  instagram: Instagram,
+  twitter: Twitter,
+  youtube: Youtube,
+  github: Github,
+  linkedin: Linkedin,
+  website: Globe,
+  email: Mail,
+  spotify: Music,
+  tiktok: Video,
+  default: ExternalLink,
 };
 
 export default function PublicProfilePage({ params }: PageProps) {
@@ -111,106 +148,66 @@ export default function PublicProfilePage({ params }: PageProps) {
     }
   };
 
-  const getThemeStyles = () => {
-    if (!profile) return {};
-
+  const getTheme = () => {
+    if (!profile) return THEMES.default;
+    
+    const theme = THEMES[profile.theme_preference] || THEMES.default;
+    
     if (profile.is_premium && profile.custom_colors) {
       return {
-        backgroundColor: profile.custom_colors.background || THEMES.default.colors.background,
-        color: profile.custom_colors.primary || THEMES.default.colors.primary,
+        ...theme,
+        colors: {
+          ...theme.colors,
+          primary: profile.custom_colors.primary || theme.colors.primary,
+          secondary: profile.custom_colors.secondary || theme.colors.secondary,
+          background: profile.custom_colors.background || theme.colors.background,
+          accent: profile.custom_colors.accent || theme.colors.accent,
+        }
       };
     }
-
-    const theme = THEMES[profile.theme_preference] || THEMES.default;
-    return {
-      backgroundColor: theme.colors.background,
-      color: theme.colors.primary,
-    };
+    
+    return theme;
   };
 
-  const getFontFamily = () => {
-    if (!profile) return '';
-    const fontKey = profile.is_premium && profile.custom_font 
-      ? profile.custom_font 
-      : 'dm-sans';
-    return fontVariables[fontKey] || fontVariables['dm-sans'];
+  const getIcon = (iconName: string | null) => {
+    if (!iconName) return ExternalLink;
+    const key = iconName.toLowerCase();
+    return ICON_MAP[key] || ICON_MAP.default;
   };
 
-  const getAccentColor = () => {
-    if (!profile) return THEMES.default.colors.accent;
-    
-    if (profile.is_premium && profile.custom_colors?.accent) {
-      return profile.custom_colors.accent;
-    }
-    
-    const theme = THEMES[profile.theme_preference] || THEMES.default;
-    return theme.colors.accent;
-  };
-
-  const getTextColor = () => {
-    if (!profile) return THEMES.default.colors.secondary;
-    
-    if (profile.is_premium && profile.custom_colors?.secondary) {
-      return profile.custom_colors.secondary;
-    }
-    
-    const theme = THEMES[profile.theme_preference] || THEMES.default;
-    return theme.colors.secondary;
-  };
+  const theme = getTheme();
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-start pt-12 px-4 bg-slate-50">
-        <div className="w-full max-w-md">
-          <div className="flex flex-col items-center mb-8">
-            <SkeletonAvatar />
-            <div className="mt-4 w-32">
-              <SkeletonText lines={1} />
-            </div>
-            <div className="mt-2 w-48">
-              <SkeletonText lines={1} />
-            </div>
-          </div>
-          <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
+      <div className={`min-h-screen bg-gradient-to-br ${theme.gradient} flex items-center justify-center`}>
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="w-24 h-24 bg-white/20 rounded-full mb-4" />
+          <div className="w-32 h-4 bg-white/20 rounded" />
         </div>
       </div>
     );
   }
 
-  if (notFound) {
+  if (notFound || !profile) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50">
+      <div className={`min-h-screen bg-gradient-to-br ${theme.gradient} flex items-center justify-center px-4`}>
         <div className="text-center">
-          <h1 className="text-2xl font-display mb-2">This page doesn&apos;t exist</h1>
-          <p className="text-slate-500 mb-6">
-            We couldn&apos;t find an Aylae page for @{params.username}
+          <h1 className="text-4xl font-bold mb-2" style={{ color: theme.colors.primary }}>
+            Page Not Found
+          </h1>
+          <p className="mb-6 opacity-70" style={{ color: theme.colors.secondary }}>
+            We couldn&apos;t find @{params.username}
           </p>
           <Link
             href="/"
-            className="inline-flex items-center px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold transition-all hover:scale-105"
+            style={{ 
+              backgroundColor: theme.colors.accent, 
+              color: '#ffffff' 
+            }}
           >
-            Go to Aylae
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50">
-        <div className="text-center">
-          <h1 className="text-2xl font-display mb-2">Something went wrong</h1>
-          <p className="text-slate-500 mb-6">Please try again later</p>
-          <Link
-            href="/"
-            className="inline-flex items-center px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
-          >
-            Go to Aylae
+            <Sparkles className="w-4 h-4" />
+            Create Your Aylae
           </Link>
         </div>
       </div>
@@ -219,71 +216,175 @@ export default function PublicProfilePage({ params }: PageProps) {
 
   return (
     <div 
-      className="min-h-screen flex flex-col items-center justify-start pt-12 pb-6 px-4 transition-colors duration-300"
-      style={{
-        backgroundColor: getThemeStyles().backgroundColor,
-        color: getThemeStyles().color,
-        fontFamily: getFontFamily(),
-      }}
+      className={`min-h-screen bg-gradient-to-br ${theme.gradient}`}
+      style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
     >
-      <div className="w-full max-w-md">
-        {/* Profile Header */}
-        <div className="flex flex-col items-center mb-8">
-          <Avatar
-            url={profile.avatar_url}
-            alt={profile.display_name || profile.username}
-            size={80}
-          />
-          <h1 
-            className="mt-4 text-2xl font-display"
-            style={{ color: getThemeStyles().color }}
-          >
-            {profile.display_name || profile.username}
-          </h1>
-          {profile.bio && (
-            <p 
-              className="mt-1 text-sm text-center opacity-80"
-              style={{ color: getThemeStyles().color }}
+      {/* Container */}
+      <div className="max-w-lg mx-auto px-4 py-12">
+        {/* Profile Card */}
+        <div 
+          className="rounded-3xl p-8 mb-6 backdrop-blur-xl shadow-2xl"
+          style={{ 
+            backgroundColor: `${theme.colors.card}95`,
+            border: `1px solid ${theme.colors.accent}20`
+          }}
+        >
+          {/* Avatar */}
+          <div className="flex flex-col items-center">
+            <div 
+              className="w-24 h-24 rounded-full overflow-hidden mb-4 ring-4 shadow-lg"
+              style={{ 
+                ringColor: `${theme.colors.accent}40`,
+                border: `2px solid ${theme.colors.card}`
+              }}
             >
-              {profile.bio}
-            </p>
-          )}
+              {profile.avatar_url ? (
+                <img 
+                  src={profile.avatar_url} 
+                  alt={profile.display_name || profile.username}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div 
+                  className="w-full h-full flex items-center justify-center text-3xl font-bold"
+                  style={{ backgroundColor: theme.colors.accent, color: '#ffffff' }}
+                >
+                  {(profile.display_name || profile.username).charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+
+            {/* Name */}
+            <h1 
+              className="text-2xl font-bold mb-1"
+              style={{ color: theme.colors.primary }}
+            >
+              {profile.display_name || `@${profile.username}`}
+            </h1>
+
+            {/* Username badge */}
+            <span 
+              className="text-sm font-medium px-3 py-1 rounded-full mb-3"
+              style={{ 
+                backgroundColor: `${theme.colors.accent}15`,
+                color: theme.colors.accent
+              }}
+            >
+              @{profile.username}
+            </span>
+
+            {/* Bio */}
+            {profile.bio && (
+              <p 
+                className="text-center text-sm leading-relaxed max-w-xs"
+                style={{ color: theme.colors.secondary }}
+              >
+                {profile.bio}
+              </p>
+            )}
+
+            {/* Share button */}
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                // Could add toast here
+              }}
+              className="mt-4 p-2 rounded-full transition-all hover:scale-110"
+              style={{ 
+                backgroundColor: `${theme.colors.accent}15`,
+                color: theme.colors.accent
+              }}
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Links */}
-        <div className="space-y-3 w-full">
+        <div className="space-y-3">
           {links.length === 0 ? (
-            <p className="text-center opacity-60 py-8">
-              No links yet
-            </p>
+            <div 
+              className="text-center py-12 rounded-2xl"
+              style={{ 
+                backgroundColor: `${theme.colors.card}60`,
+                border: `1px dashed ${theme.colors.secondary}30`
+              }}
+            >
+              <p style={{ color: theme.colors.secondary }}>No links yet</p>
+            </div>
           ) : (
-            links.map((link) => (
-              <div 
-                key={link.id}
-                onClick={() => handleLinkClick(link.id)}
-              >
-                <LinkCard
-                  title={link.title}
-                  subtitle={link.subtitle}
-                  url={link.url}
-                  icon={link.icon}
-                  color={link.color}
-                  accentColor={getAccentColor()}
-                  textColor={getTextColor()}
-                />
-              </div>
-            ))
+            links.map((link, index) => {
+              const IconComponent = getIcon(link.icon);
+              return (
+                <a
+                  key={link.id}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => handleLinkClick(link.id)}
+                  className="group flex items-center gap-4 p-4 rounded-2xl backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-lg"
+                  style={{ 
+                    backgroundColor: link.color || theme.colors.card,
+                    border: `1px solid ${theme.colors.secondary}10`
+                  }}
+                >
+                  {/* Icon */}
+                  <div 
+                    className="w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-sm transition-transform group-hover:scale-110"
+                    style={{ 
+                      backgroundColor: `${theme.colors.accent}20`,
+                      color: theme.colors.accent
+                    }}
+                  >
+                    {link.icon ? (
+                      <span>{link.icon}</span>
+                    ) : (
+                      <IconComponent className="w-5 h-5" />
+                    )}
+                  </div>
+
+                  {/* Text */}
+                  <div className="flex-1 min-w-0">
+                    <h3 
+                      className="font-semibold truncate"
+                      style={{ color: theme.colors.primary }}
+                    >
+                      {link.title}
+                    </h3>
+                    {link.subtitle && (
+                      <p 
+                        className="text-sm truncate opacity-70"
+                        style={{ color: theme.colors.secondary }}
+                      >
+                        {link.subtitle}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Arrow */}
+                  <ArrowUpRight 
+                    className="w-5 h-5 opacity-40 group-hover:opacity-100 transition-opacity"
+                    style={{ color: theme.colors.secondary }}
+                  />
+                </a>
+              );
+            })
           )}
         </div>
 
-        {/* PREMIUM FEATURE: Hide branding for premium users */}
+        {/* Footer Branding */}
         {!profile.remove_branding && (
           <div className="mt-12 text-center">
             <Link
               href="/"
-              className="text-xs opacity-50 hover:opacity-100 transition-opacity"
-              style={{ color: getThemeStyles().color }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all hover:scale-105"
+              style={{ 
+                backgroundColor: `${theme.colors.card}80`,
+                color: theme.colors.secondary,
+                border: `1px solid ${theme.colors.secondary}20`
+              }}
             >
+              <Sparkles className="w-4 h-4" />
               Made with Aylae
             </Link>
           </div>
