@@ -22,8 +22,19 @@ export async function GET(request: NextRequest) {
       .eq('user_id', user.id)
       .single();
 
-    // PREMIUM GATE: Only premium users can access analytics
-    if (subscription?.status !== 'active' && subscription?.status !== 'trialing') {
+    // Also check profile.is_premium
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_premium')
+      .eq('id', user.id)
+      .single();
+
+    // PREMIUM GATE: Premium via subscription OR profile flag
+    const isPremium = subscription?.status === 'active' || 
+                     subscription?.status === 'trialing' ||
+                     profile?.is_premium === true;
+
+    if (!isPremium) {
       return NextResponse.json(
         { error: 'Premium feature' },
         { status: 403 }
