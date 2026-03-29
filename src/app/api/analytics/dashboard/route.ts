@@ -1,27 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 
-// Force dynamic rendering - can't be static because it uses cookies
+// Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
-// PREMIUM FEATURE: Fetch analytics data for dashboard
-// Returns click statistics for the authenticated user's links
 export async function GET(request: NextRequest) {
   try {
-    // Create server-side Supabase client
-    const supabase = createServerClient(
+    // Get auth token from header
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized - No token' },
+        { status: 401 }
+      );
+    }
+
+    // Create Supabase client with the token
+    const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
-        cookies: {
-          get(name: string) {
-            return request.cookies.get(name)?.value;
-          },
-          set(name: string, value: string, options: any) {
-            // Can't set cookies in GET handler
-          },
-          remove(name: string, options: any) {
-            // Can't remove cookies in GET handler
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
         },
       }
@@ -29,9 +32,6 @@ export async function GET(request: NextRequest) {
     
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
-    console.log('Dashboard API - User:', user?.id, 'Error:', userError?.message);
-    console.log('Cookies present:', request.cookies.get('sb-access-token')?.value ? 'yes' : 'no');
     
     if (userError || !user) {
       console.error('Auth error:', userError);

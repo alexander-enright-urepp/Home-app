@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { BarChart3, TrendingUp, MousePointer, Calendar } from 'lucide-react';
 import { useSubscription } from '@/lib/subscription';
+import { supabase } from '@/lib/supabase';
 import { LockedFeature } from './UpgradeCTA';
 
 // PREMIUM FEATURE: Analytics Dashboard
@@ -38,7 +39,14 @@ export function AnalyticsDashboard() {
 
     const fetchAnalytics = async () => {
       try {
-        const response = await fetch(`/api/analytics/dashboard?days=${selectedDays}`);
+        // Get the current session token from Supabase
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        const response = await fetch(`/api/analytics/dashboard?days=${selectedDays}`, {
+          headers: {
+            'Authorization': session?.access_token ? `Bearer ${session.access_token}` : '',
+          },
+        });
         
         if (!response.ok) {
           throw new Error('Failed to fetch analytics');
