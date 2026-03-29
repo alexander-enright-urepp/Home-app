@@ -130,11 +130,13 @@ export default function PublicProfilePage({ params }: PageProps) {
   }, [params.username]);
 
   const handleLinkClick = async (linkId: string) => {
+    console.log('Link clicked:', linkId, 'Profile:', profile?.id, 'isPremium:', profile?.is_premium);
     if (!profile) return;
 
     if (profile.is_premium) {
       try {
-        await fetch("/api/analytics/track", {
+        console.log('Sending analytics request...');
+        const response = await fetch("/api/analytics/track", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -142,9 +144,12 @@ export default function PublicProfilePage({ params }: PageProps) {
             user_id: profile.id,
           }),
         });
+        console.log('Analytics response:', response.status);
       } catch (error) {
         console.error("Failed to track click:", error);
       }
+    } else {
+      console.log('Not premium, skipping analytics');
     }
   };
 
