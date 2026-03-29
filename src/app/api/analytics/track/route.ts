@@ -19,16 +19,12 @@ export async function POST(request: NextRequest) {
     const referrer = request.headers.get('referer') || null;
     const userAgent = request.headers.get('user-agent') || null;
     
-    // Get IP and country (in production, use a service like Vercel Analytics or ip-api)
-    const ip = request.ip || request.headers.get('x-forwarded-for') || null;
-    
     // Insert click record
     const { error } = await supabase.from('link_clicks').insert({
       link_id,
       user_id,
       referrer,
       user_agent: userAgent,
-      ip_address: ip,
     });
 
     if (error) {
