@@ -28,7 +28,7 @@ interface LinkItem {
   url: string;
   icon: string | null;
   color: string | null;
-  order: number;
+  sort_order: number;
 }
 
 interface PageProps {
@@ -71,10 +71,10 @@ export default function PublicProfilePage({ params }: PageProps) {
 
         const { data: linksData, error: linksError } = await supabase
           .from("links")
-          .select("id, title, subtitle, url, icon, color, order")
+          .select("id, title, subtitle, url, icon, color, sort_order")
           .eq("user_id", profileData.id)
           .eq("is_visible", true)
-          .order("order", { ascending: true });
+          .order("sort_order", { ascending: true });
 
         if (linksError) {
           console.error("Error fetching links:", linksError);
