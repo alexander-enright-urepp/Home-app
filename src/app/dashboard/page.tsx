@@ -28,6 +28,7 @@ import { UpgradeCTA, PremiumBadge, LinkLimitIndicator } from '@/components/Upgra
 import { AnalyticsDashboard } from '@/components/AnalyticsDashboard';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { SubscriptionManager } from '@/components/SubscriptionManager';
+import { SocialLinksEditor } from '@/components/SocialLinksEditor';
 import toast from 'react-hot-toast';
 
 interface LinkItem {
@@ -48,6 +49,11 @@ interface Profile {
   avatar_url: string | null;
   is_premium: boolean;
   theme_preference: string;
+  instagram_url: string | null;
+  x_url: string | null;
+  youtube_url: string | null;
+  tiktok_url: string | null;
+  public_email: string | null;
 }
 
 type Tab = 'links' | 'analytics' | 'themes' | 'subscription' | 'settings';
@@ -69,6 +75,14 @@ function DashboardContent() {
   const [bioInput, setBioInput] = useState("");
   const [nameInput, setNameInput] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingSocials, setIsEditingSocials] = useState(false);
+  const [socialInputs, setSocialInputs] = useState({
+    instagram_url: '',
+    x_url: '',
+    youtube_url: '',
+    tiktok_url: '',
+    public_email: '',
+  });
   const [activeTab, setActiveTab] = useState<Tab>('links');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
@@ -733,7 +747,7 @@ function DashboardContent() {
                 {!isEditingName ? (
                   <button
                     onClick={() => setIsEditingName(true)}
-                    className="text-sm text-emerald-600 hover:underline"
+                    className="px-3 py-1.5 text-sm font-medium bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
                   >
                     Edit
                   </button>
@@ -744,13 +758,13 @@ function DashboardContent() {
                         setIsEditingName(false);
                         setNameInput(profile?.display_name || "");
                       }}
-                      className="text-sm text-slate-500 hover:text-slate-700"
+                      className="px-3 py-1.5 text-sm font-medium bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSaveName}
-                      className="text-sm text-emerald-600 hover:underline"
+                      className="px-3 py-1.5 text-sm font-medium bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
                     >
                       Save
                     </button>
@@ -789,7 +803,7 @@ function DashboardContent() {
                 {!isEditingBio ? (
                   <button
                     onClick={() => setIsEditingBio(true)}
-                    className="text-sm text-emerald-600 hover:underline"
+                    className="px-3 py-1.5 text-sm font-medium bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
                   >
                     Edit
                   </button>
@@ -800,13 +814,13 @@ function DashboardContent() {
                         setIsEditingBio(false);
                         setBioInput(profile?.bio || "");
                       }}
-                      className="text-sm text-slate-500 hover:text-slate-700"
+                      className="px-3 py-1.5 text-sm font-medium bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSaveBio}
-                      className="text-sm text-emerald-600 hover:underline"
+                      className="px-3 py-1.5 text-sm font-medium bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
                     >
                       Save
                     </button>
@@ -835,6 +849,13 @@ function DashboardContent() {
                 </p>
               )}
             </div>
+
+            {/* Social Links Editor */}
+            <SocialLinksEditor 
+              userId={userId || ''} 
+              profile={profile}
+              onUpdate={fetchData}
+            />
 
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-slate-900">Your Links</h2>

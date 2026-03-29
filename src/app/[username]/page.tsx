@@ -16,6 +16,11 @@ interface Profile {
   custom_colors: { primary?: string; secondary?: string; background?: string; accent?: string } | null;
   custom_font: string;
   remove_branding: boolean;
+  instagram_url: string | null;
+  x_url: string | null;
+  youtube_url: string | null;
+  tiktok_url: string | null;
+  public_email: string | null;
 }
 
 interface LinkItem {
@@ -94,7 +99,7 @@ export default function PublicProfilePage({ params }: PageProps) {
       try {
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
-          .select("id, username, display_name, bio, avatar_url, is_premium, theme_preference, custom_colors, custom_font, remove_branding")
+          .select("id, username, display_name, bio, avatar_url, is_premium, theme_preference, custom_colors, custom_font, remove_branding, instagram_url, x_url, youtube_url, tiktok_url, public_email")
           .eq("username", params.username)
           .single();
 
@@ -288,20 +293,84 @@ export default function PublicProfilePage({ params }: PageProps) {
               </p>
             )}
 
-            {/* Share button */}
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                // Could add toast here
-              }}
-              className="mt-4 p-2 rounded-full transition-all hover:scale-110"
-              style={{ 
-                backgroundColor: `${theme.colors.accent}15`,
-                color: theme.colors.accent
-              }}
-            >
-              <Share2 className="w-4 h-4" />
-            </button>
+            {/* Social Links & Share */}
+            {(profile.instagram_url || profile.x_url || profile.youtube_url || profile.tiktok_url || profile.public_email || true) && (
+              <div className="flex flex-wrap justify-center gap-3 mt-4">
+                {profile.instagram_url && (
+                  <a 
+                    href={profile.instagram_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="p-3 rounded-full transition-all hover:scale-110"
+                    style={{ backgroundColor: `${theme.colors.accent}15`, color: theme.colors.accent }}
+                  >
+                    <Instagram className="w-5 h-5" />
+                  </a>
+                )}
+                {profile.x_url && (
+                  <a 
+                    href={profile.x_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="p-3 rounded-full transition-all hover:scale-110"
+                    style={{ backgroundColor: `${theme.colors.accent}15`, color: theme.colors.accent }}
+                  >
+                    <Twitter className="w-5 h-5" />
+                  </a>
+                )}
+                {profile.youtube_url && (
+                  <a 
+                    href={profile.youtube_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="p-3 rounded-full transition-all hover:scale-110"
+                    style={{ backgroundColor: `${theme.colors.accent}15`, color: theme.colors.accent }}
+                  >
+                    <Youtube className="w-5 h-5" />
+                  </a>
+                )}
+                {profile.tiktok_url && (
+                  <a 
+                    href={profile.tiktok_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="p-3 rounded-full transition-all hover:scale-110"
+                    style={{ backgroundColor: `${theme.colors.accent}15`, color: theme.colors.accent }}
+                  >
+                    <Music className="w-5 h-5" />
+                  </a>
+                )}
+                {profile.public_email && (
+                  <a 
+                    href={`mailto:${profile.public_email}`}
+                    className="p-3 rounded-full transition-all hover:scale-110"
+                    style={{ backgroundColor: `${theme.colors.accent}15`, color: theme.colors.accent }}
+                  >
+                    <Mail className="w-5 h-5" />
+                  </a>
+                )}
+                {/* Share button */}
+                <button
+                  onClick={() => {
+                    if (navigator.share) {
+                      navigator.share({
+                        title: `${profile.display_name || profile.username}'s Profile`,
+                        url: window.location.href,
+                      });
+                    } else {
+                      navigator.clipboard.writeText(window.location.href);
+                    }
+                  }}
+                  className="p-3 rounded-full transition-all hover:scale-110"
+                  style={{ 
+                    backgroundColor: `${theme.colors.accent}15`,
+                    color: theme.colors.accent
+                  }}
+                >
+                  <Share2 className="w-5 h-5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
