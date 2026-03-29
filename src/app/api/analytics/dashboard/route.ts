@@ -27,6 +27,9 @@ export async function GET(request: NextRequest) {
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
+    console.log('Dashboard API - User:', user?.id, 'Error:', userError?.message);
+    console.log('Cookies present:', request.cookies.get('sb-access-token')?.value ? 'yes' : 'no');
+    
     if (userError || !user) {
       console.error('Auth error:', userError);
       return NextResponse.json(
