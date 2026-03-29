@@ -1,51 +1,62 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Loader2, Lock, CheckCircle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
+  const [hasSession, setHasSession] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // Exchange token for session on load
+  // Check for recovery session on mount
   useEffect(() => {
-    const exchangeToken = async () => {
+    const checkSession = async () => {
       try {
-        // Wait longer for Supabase to parse hash and establish session
-        let attempts = 0;
-        while (attempts < 15) {
-          await new Promise(resolve => setTimeout(resolve, 200));
-          
-          const { data: { session } } = await supabase.auth.getSession();
-          
-          if (session) {
-            console.log('Session established');
-            setIsValidating(false);
-            return;
-          }
-          
-          attempts++;
-        }
+        // Wait for Supabase to process any hash params
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
-        setError('No valid session. Please request a new password reset.');
-        setIsValidating(false);
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          console.log('Recovery session established');
+          setHasSession(true);
+        } else {
+          // Try to exchange the hash token if present
+          const hash = window.location.hash;
+          if (hash && hash.length > 1) {
+            // Supabase should have auto-processed it
+            // Check again after a delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const { data: { session: retrySession } } = await supabase.auth.getSession();
+            
+            if (retrySession) {
+              setHasSession(true);
+            } else {
+              setError('Invalid or expired link. Please request a new password reset.');
+            }
+          } else {
+            setError('No reset token found. Please request a new password reset.');
+          }
+        }
       } catch (err) {
-        console.error('Unexpected error:', err);
+        console.error('Session check error:', err);
         setError('An unexpected error occurred.');
+      } finally {
         setIsValidating(false);
       }
     };
 
-    exchangeToken();
+    checkSession();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,10 +74,10 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
     
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
 
-    if (error) {
-      setError(error.message);
+    if (updateError) {
+      setError(updateError.message);
       setLoading(false);
       return;
     }
@@ -176,11 +187,7 @@ export default function ResetPasswordPage() {
             />
           </div>
 
-          {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
-              <p className="text-red-400 text-sm text-center">{error}</p>
-            </div>
-          )}
+          {error && <p className="text-red-400 text-sm text-center bg-red-500/10 py-2 rounded-lg">{error}</p>}
 
           <button
             type="submit"
@@ -190,14 +197,23 @@ export default function ResetPasswordPage() {
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Update Password'}
           </button>
         </form>
-
-        <p className="mt-8 text-center text-slate-500 text-sm">
-          Remember your password?{' '}
-          <Link href="/login" className="text-emerald-400 hover:underline">
-            Sign in
-          </Link>
-        </p>
       </div>
     </div>
+  );
+}
+
+// Wrap with Suspense for useSearchParams
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mx-auto mb-4" />
+          <p className="text-slate-400">Loading...</p>
+        </div>
+      </div>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

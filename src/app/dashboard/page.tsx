@@ -88,6 +88,7 @@ function DashboardContent() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [customColors, setCustomColors] = useState({
     primary: '#0f172a',
     background: '#ffffff',
@@ -1130,21 +1131,61 @@ function DashboardContent() {
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-red-50 border border-red-100 rounded-lg">
                   <div>
-                    <h3 className="font-medium text-slate-900">Delete Account</h3>
-                    <p className="text-sm text-slate-500">Permanently delete your account and all data</p>
+                    <h3 className="font-medium text-red-900">Delete Account</h3>
+                    <p className="text-sm text-red-600">Permanently delete your account and all data. This cannot be undone.</p>
                   </div>
                   <button
-                    onClick={() => {
-                      if (confirm('Are you sure? This cannot be undone.')) {
-                        toast.error('Contact support to delete account');
+                    onClick={async () => {
+                      // Double confirmation
+                      const firstConfirm = window.confirm('Are you sure you want to delete your account?\n\nThis will permanently delete:\n• Your profile\n• All your links\n• All analytics data\n\nThis action cannot be undone.');
+                      
+                      if (!firstConfirm) return;
+                      
+                      // Second confirmation
+                      const secondConfirm = window.confirm('Please confirm again:\n\nThis will PERMANENTLY delete everything.\n\nClick OK to proceed.');
+                      
+                      if (!secondConfirm) return;
+                      
+                      setIsDeleting(true);
+                      
+                      try {
+                        // Delete user's data in order
+                        await supabase.from('links').delete().eq('user_id', userId);
+                        await supabase.from('link_clicks').delete().eq('user_id', userId);
+                        await supabase.from('subscriptions').delete().eq('user_id', userId);
+                        await supabase.from('profiles').delete().eq('id', userId);
+                        
+                        // Sign out
+                        await supabase.auth.signOut();
+                        
+                        toast.success('Account data deleted. Contact support@aylae.app to complete removal.');
+                        router.push('/');
+                      } catch (error) {
+                        console.error('Delete error:', error);
+                        toast.error('Failed to delete account. Please try again or contact support.');
+                        setIsDeleting(false);
                       }
                     }}
-                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+                    disabled={isDeleting}
                   >
-                    Delete
+                    {isDeleting ? 'Deleting...' : 'Delete Account'}
                   </button>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                  <div>
+                    <h3 className="font-medium text-blue-900">Contact Support</h3>
+                    <p className="text-sm text-blue-600">Need help? Have questions? Send us an email.</p>
+                  </div>
+                  <a
+                    href="mailto:alexenrightt@gmail.com"
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    Email Support
+                  </a>
                 </div>
               </div>
             </div>
