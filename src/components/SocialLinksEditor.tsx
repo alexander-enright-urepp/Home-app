@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Instagram, Twitter, Youtube, Music, Mail, Globe } from 'lucide-react';
+import { Instagram, Twitter, Youtube, Music, Mail, Globe, Linkedin } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -12,6 +12,7 @@ interface SocialLinksEditorProps {
     x_url?: string | null;
     youtube_url?: string | null;
     tiktok_url?: string | null;
+    linkedin_url?: string | null;
     public_email?: string | null;
   } | null;
   onUpdate: () => void;
@@ -24,6 +25,7 @@ export function SocialLinksEditor({ userId, profile, onUpdate }: SocialLinksEdit
     x_url: '',
     youtube_url: '',
     tiktok_url: '',
+    linkedin_url: '',
     public_email: '',
   });
 
@@ -34,6 +36,7 @@ export function SocialLinksEditor({ userId, profile, onUpdate }: SocialLinksEdit
         x_url: profile.x_url || '',
         youtube_url: profile.youtube_url || '',
         tiktok_url: profile.tiktok_url || '',
+        linkedin_url: profile.linkedin_url || '',
         public_email: profile.public_email || '',
       });
     }
@@ -47,6 +50,7 @@ export function SocialLinksEditor({ userId, profile, onUpdate }: SocialLinksEdit
         x_url: inputs.x_url || null,
         youtube_url: inputs.youtube_url || null,
         tiktok_url: inputs.tiktok_url || null,
+        linkedin_url: inputs.linkedin_url || null,
         public_email: inputs.public_email || null,
       })
       .eq('id', userId);
@@ -61,7 +65,7 @@ export function SocialLinksEditor({ userId, profile, onUpdate }: SocialLinksEdit
     onUpdate();
   };
 
-  const hasAnySocial = profile?.instagram_url || profile?.x_url || profile?.youtube_url || profile?.tiktok_url || profile?.public_email;
+  const hasAnySocial = profile?.instagram_url || profile?.x_url || profile?.youtube_url || profile?.tiktok_url || profile?.linkedin_url || profile?.public_email;
 
   if (isEditing) {
     return (
@@ -133,6 +137,17 @@ export function SocialLinksEditor({ userId, profile, onUpdate }: SocialLinksEdit
           </div>
 
           <div className="flex items-center gap-3">
+            <Linkedin className="w-5 h-5 text-blue-700" />
+            <input
+              type="url"
+              value={inputs.linkedin_url}
+              onChange={(e) => setInputs({ ...inputs, linkedin_url: e.target.value })}
+              placeholder="https://linkedin.com/in/username"
+              className="flex-1 p-2 border rounded-lg text-sm"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
             <Mail className="w-5 h-5 text-slate-500" />
             <input
               type="email"
@@ -182,6 +197,11 @@ export function SocialLinksEditor({ userId, profile, onUpdate }: SocialLinksEdit
           {profile?.tiktok_url && (
             <a href={profile.tiktok_url} target="_blank" rel="noopener noreferrer" className="p-2 bg-black text-white rounded-lg hover:bg-slate-800 transition-colors">
               <Music className="w-5 h-5" />
+            </a>
+          )}
+          {profile?.linkedin_url && (
+            <a href={profile.linkedin_url} target="_blank" rel="noopener noreferrer" className="p-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
+              <Linkedin className="w-5 h-5" />
             </a>
           )}
           {profile?.public_email && (

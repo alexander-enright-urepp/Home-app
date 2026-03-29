@@ -53,6 +53,7 @@ interface Profile {
   x_url: string | null;
   youtube_url: string | null;
   tiktok_url: string | null;
+  linkedin_url: string | null;
   public_email: string | null;
 }
 
@@ -600,8 +601,8 @@ function DashboardContent() {
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-display">Aylae</h1>
               {profile && (
                 <div className="flex items-center gap-2">
@@ -628,7 +629,7 @@ function DashboardContent() {
               )}
               {isPremium && <PremiumBadge />}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {profile && (
                 <Link
                   href={`/${profile.username}`}

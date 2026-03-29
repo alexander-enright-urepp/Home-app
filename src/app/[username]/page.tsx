@@ -20,6 +20,7 @@ interface Profile {
   x_url: string | null;
   youtube_url: string | null;
   tiktok_url: string | null;
+  linkedin_url: string | null;
   public_email: string | null;
 }
 
@@ -99,7 +100,7 @@ export default function PublicProfilePage({ params }: PageProps) {
       try {
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
-          .select("id, username, display_name, bio, avatar_url, is_premium, theme_preference, custom_colors, custom_font, remove_branding, instagram_url, x_url, youtube_url, tiktok_url, public_email")
+          .select("id, username, display_name, bio, avatar_url, is_premium, theme_preference, custom_colors, custom_font, remove_branding, instagram_url, x_url, youtube_url, tiktok_url, linkedin_url, public_email")
           .eq("username", params.username)
           .single();
 
@@ -338,6 +339,17 @@ export default function PublicProfilePage({ params }: PageProps) {
                     style={{ backgroundColor: `${theme.colors.accent}15`, color: theme.colors.accent }}
                   >
                     <Music className="w-5 h-5" />
+                  </a>
+                )}
+                {profile.linkedin_url && (
+                  <a 
+                    href={profile.linkedin_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="p-3 rounded-full transition-all hover:scale-110"
+                    style={{ backgroundColor: `${theme.colors.accent}15`, color: theme.colors.accent }}
+                  >
+                    <Linkedin className="w-5 h-5" />
                   </a>
                 )}
                 {profile.public_email && (
