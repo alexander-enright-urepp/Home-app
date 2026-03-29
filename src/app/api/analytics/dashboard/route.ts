@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase-server';
 
 // PREMIUM FEATURE: Fetch analytics data for dashboard
 // Returns click statistics for the authenticated user's links
 export async function GET(request: NextRequest) {
   try {
+    // Create server-side Supabase client that reads cookies
+    const supabase = createClient();
+    
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -45,37 +48,45 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const days = parseInt(searchParams.get('days') || '30');
 
-    // Fetch clicks per link using RPC function
-    const { data: linkClicks, error: linkError } = await supabase.rpc(
-      'get_user_clicks_per_link',
-      { p_user_id: user.id, p_days: days }
-    );
+    // Calculate date threshold
+    const dateThreshold = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-    if (linkError) {
-      console.error('Error fetching link clicks:', linkError);
-    }
+    // Fetch total clicks
+    const { data: totalClicksData, error: totalError } = await supabase
+      .from('link_clicks')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('clicked_at', dateThreshold);
 
-    // Fetch total clicks using RPC function
-    const { data: totalClicks, error: totalError } = await supabase.rpc(
-      'get_user_total_clicks',
-      { p_user_id: user.id, p_days: days }
-    );
+    const totalClicks = totalClicksData?.length || 0;
 
-    if (totalError) {
-      console.error('Error fetching total clicks:', totalError);
-    }
+    // Fetch clicks per link
+    const { data: linkClicks, error: linkError } = await supabase
+      .from('link_clicks')
+      .select('link_id, links!inner(title)')
+      .eq('user_id', user.id)
+      .gte('clicked_at', dateThreshold);
 
-    // Fetch daily click breakdown (last 30 days)
+    // Aggregate clicks per link
+    const clicksPerLinkMap = new Map();
+    linkClicks?.forEach((click) => {
+      const linkId = click.link_id;
+      const title = (click.links as any)?.title || 'Unknown';
+      if (!clicksPerLinkMap.has(linkId)) {
+        clicksPerLinkMap.set(linkId, { link_id: linkId, link_title: title, click_count: 0 });
+      }
+      clicksPerLinkMap.get(linkId).click_count++;
+    });
+
+    const clicksPerLink = Array.from(clicksPerLinkMap.values()).sort((a, b) => b.click_count - a.click_count);
+
+    // Fetch daily click breakdown
     const { data: dailyClicks, error: dailyError } = await supabase
       .from('link_clicks')
-      .select('clicked_at, links!inner(user_id)')
-      .eq('links.user_id', user.id)
-      .gte('clicked_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString())
+      .select('clicked_at')
+      .eq('user_id', user.id)
+      .gte('clicked_at', dateThreshold)
       .order('clicked_at', { ascending: true });
-
-    if (dailyError) {
-      console.error('Error fetching daily clicks:', dailyError);
-    }
 
     // Aggregate daily clicks
     const dailyStats: Record<string, number> = {};
@@ -85,11 +96,11 @@ export async function GET(request: NextRequest) {
     });
 
     // Get top performing links
-    const topLinks = linkClicks?.slice(0, 5) || [];
+    const topLinks = clicksPerLink.slice(0, 5);
 
     return NextResponse.json({
-      totalClicks: totalClicks || 0,
-      clicksPerLink: linkClicks || [],
+      totalClicks,
+      clicksPerLink,
       dailyStats,
       topLinks,
       days,
