@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase-server';
 
 // PREMIUM FEATURE: Track link clicks for analytics
 // Called when a visitor clicks a link on a public profile
 export async function POST(request: NextRequest) {
   try {
+    const supabase = createClient();
     const { link_id, user_id } = await request.json();
 
     if (!link_id || !user_id) {
