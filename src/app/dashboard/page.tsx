@@ -88,6 +88,13 @@ function DashboardContent() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [customColors, setCustomColors] = useState({
+    primary: '#0f172a',
+    background: '#ffffff',
+    accent: '#10b981',
+    secondary: '#334155',
+  });
+  const [hasColorChanges, setHasColorChanges] = useState(false);
 
   useEffect(() => {
     const checkout = searchParams.get('checkout');
@@ -483,11 +490,13 @@ function DashboardContent() {
       .eq("id", userId);
     
     if (error) {
-      toast.error("Failed to update color");
+      console.error("Color update error:", error);
+      toast.error("Failed to update color: " + error.message);
       return;
     }
     
     setProfile((prev) => prev ? { ...prev, custom_colors: newColors } : null);
+    toast.success(`${colorKey} color updated!`);
   };
 
   const handleBrandingToggle = async () => {
@@ -958,19 +967,41 @@ function DashboardContent() {
 
             {isPremium && (
               <div className="bg-white rounded-xl border border-slate-200 p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Palette className="w-5 h-5 text-emerald-500" />
-                  <h3 className="font-semibold text-slate-900">Custom Colors</h3>
-                  <PremiumBadge />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Palette className="w-5 h-5 text-emerald-500" />
+                    <h3 className="font-semibold text-slate-900">Custom Colors</h3>
+                    <PremiumBadge />
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (!userId) return;
+                      const { error } = await supabase
+                        .from("profiles")
+                        .update({
+                          custom_colors: customColors
+                        })
+                        .eq("id", userId);
+                      if (error) {
+                        toast.error("Failed to save colors");
+                        return;
+                      }
+                      setProfile((prev) => prev ? { ...prev, custom_colors: customColors } : null);
+                      toast.success("Colors saved!");
+                    }}
+                    className="px-3 py-1.5 text-sm font-medium bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+                  >
+                    Save Colors
+                  </button>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="text-sm text-slate-600 mb-1 block">Profile Title Color</label>
                     <input 
                       type="color" 
-                      value={profile?.custom_colors?.primary || '#0f172a'}
-                      onChange={(e) => handleColorChange('primary', e.target.value)}
+                      value={customColors.primary}
+                      onChange={(e) => setCustomColors({ ...customColors, primary: e.target.value })}
                       className="w-full h-10 rounded-lg cursor-pointer"
                     />
                   </div>
@@ -978,17 +1009,17 @@ function DashboardContent() {
                     <label className="text-sm text-slate-600 mb-1 block">Background Color</label>
                     <input 
                       type="color" 
-                      value={profile?.custom_colors?.background || '#ffffff'}
-                      onChange={(e) => handleColorChange('background', e.target.value)}
+                      value={customColors.background}
+                      onChange={(e) => setCustomColors({ ...customColors, background: e.target.value })}
                       className="w-full h-10 rounded-lg cursor-pointer"
                     />
                   </div>
                   <div>
-                    <label className="text-sm text-slate-600 mb-1 block">Link Title Color</label>
+                    <label className="text-sm text-slate-600 mb-1 block">Social Links Color</label>
                     <input 
                       type="color" 
-                      value={profile?.custom_colors?.accent || '#10b981'}
-                      onChange={(e) => handleColorChange('accent', e.target.value)}
+                      value={customColors.accent}
+                      onChange={(e) => setCustomColors({ ...customColors, accent: e.target.value })}
                       className="w-full h-10 rounded-lg cursor-pointer"
                     />
                   </div>
@@ -996,15 +1027,15 @@ function DashboardContent() {
                     <label className="text-sm text-slate-600 mb-1 block">Link Subtitle Color</label>
                     <input 
                       type="color" 
-                      value={profile?.custom_colors?.secondary || '#334155'}
-                      onChange={(e) => handleColorChange('secondary', e.target.value)}
+                      value={customColors.secondary}
+                      onChange={(e) => setCustomColors({ ...customColors, secondary: e.target.value })}
                       className="w-full h-10 rounded-lg cursor-pointer"
                     />
                   </div>
                 </div>
                 
-                <p className="text-sm text-slate-500 mt-4">
-                  Custom colors override the theme colors on your public profile.
+                <p className="text-sm text-slate-500">
+                  Click Save Colors to update your public profile.
                 </p>
               </div>
             )}

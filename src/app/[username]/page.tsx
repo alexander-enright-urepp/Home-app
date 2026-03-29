@@ -227,8 +227,13 @@ export default function PublicProfilePage({ params }: PageProps) {
 
   return (
     <div 
-      className={`min-h-screen bg-gradient-to-br ${theme.gradient}`}
-      style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+      className="min-h-screen"
+      style={{ 
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        background: profile.is_premium && profile.custom_colors?.background 
+          ? profile.custom_colors.background 
+          : `linear-gradient(to bottom right, var(--tw-gradient-stops))`
+      }}
     >
       {/* Container */}
       <div className="max-w-lg mx-auto px-4 py-12">

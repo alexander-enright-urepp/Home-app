@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
-import { LandingPage } from "@/components/LandingPage";
+import LandingPage from "@/components/LandingPage";
 
 export default async function Home() {
   // Check if user is logged in
