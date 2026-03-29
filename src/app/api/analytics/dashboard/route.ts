@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
+// Force dynamic rendering - can't be static because it uses cookies
+export const dynamic = 'force-dynamic';
+
 // PREMIUM FEATURE: Fetch analytics data for dashboard
 // Returns click statistics for the authenticated user's links
 export async function GET(request: NextRequest) {
