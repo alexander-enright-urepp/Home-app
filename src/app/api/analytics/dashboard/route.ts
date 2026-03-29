@@ -1,43 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase-server';
+import { createServerClient } from '@supabase/ssr';
 
 // PREMIUM FEATURE: Fetch analytics data for dashboard
 // Returns click statistics for the authenticated user's links
 export async function GET(request: NextRequest) {
   try {
-    // Create server-side Supabase client that reads cookies
-    const supabase = createClient();
+    // Create server-side Supabase client
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value;
+          },
+          set(name: string, value: string, options: any) {
+            // Can't set cookies in GET handler
+          },
+          remove(name: string, options: any) {
+            // Can't remove cookies in GET handler
+          },
+        },
+      }
+    );
     
     // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (!user) {
+    if (userError || !user) {
+      console.error('Auth error:', userError);
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // Check if user has premium subscription
-    const { data: subscription } = await supabase
-      .from('subscriptions')
-      .select('status')
-      .eq('user_id', user.id)
-      .single();
-
-    // Also check profile.is_premium
+    // Check if user has premium via profile
     const { data: profile } = await supabase
       .from('profiles')
       .select('is_premium')
       .eq('id', user.id)
       .single();
 
-    // PREMIUM GATE: Premium via subscription OR profile flag
-    const isPremium = subscription?.status === 'active' || 
-                     subscription?.status === 'trialing' ||
-                     profile?.is_premium === true;
-
-    if (!isPremium) {
+    // PREMIUM GATE: Check profile.is_premium
+    if (!profile?.is_premium) {
       return NextResponse.json(
         { error: 'Premium feature' },
         { status: 403 }
@@ -52,13 +58,15 @@ export async function GET(request: NextRequest) {
     const dateThreshold = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
     // Fetch total clicks
-    const { data: totalClicksData, error: totalError } = await supabase
+    const { count: totalClicks, error: totalError } = await supabase
       .from('link_clicks')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .gte('clicked_at', dateThreshold);
 
-    const totalClicks = totalClicksData?.length || 0;
+    if (totalError) {
+      console.error('Error fetching total clicks:', totalError);
+    }
 
     // Fetch clicks per link
     const { data: linkClicks, error: linkError } = await supabase
@@ -67,11 +75,15 @@ export async function GET(request: NextRequest) {
       .eq('user_id', user.id)
       .gte('clicked_at', dateThreshold);
 
+    if (linkError) {
+      console.error('Error fetching link clicks:', linkError);
+    }
+
     // Aggregate clicks per link
     const clicksPerLinkMap = new Map();
-    linkClicks?.forEach((click) => {
+    linkClicks?.forEach((click: any) => {
       const linkId = click.link_id;
-      const title = (click.links as any)?.title || 'Unknown';
+      const title = click.links?.title || 'Unknown';
       if (!clicksPerLinkMap.has(linkId)) {
         clicksPerLinkMap.set(linkId, { link_id: linkId, link_title: title, click_count: 0 });
       }
@@ -88,9 +100,13 @@ export async function GET(request: NextRequest) {
       .gte('clicked_at', dateThreshold)
       .order('clicked_at', { ascending: true });
 
+    if (dailyError) {
+      console.error('Error fetching daily clicks:', dailyError);
+    }
+
     // Aggregate daily clicks
     const dailyStats: Record<string, number> = {};
-    dailyClicks?.forEach((click) => {
+    dailyClicks?.forEach((click: any) => {
       const date = new Date(click.clicked_at).toISOString().split('T')[0];
       dailyStats[date] = (dailyStats[date] || 0) + 1;
     });
@@ -99,7 +115,7 @@ export async function GET(request: NextRequest) {
     const topLinks = clicksPerLink.slice(0, 5);
 
     return NextResponse.json({
-      totalClicks,
+      totalClicks: totalClicks || 0,
       clicksPerLink,
       dailyStats,
       topLinks,
